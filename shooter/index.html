@@ -197,11 +197,17 @@
     }
     .touch-move {
       position: absolute;
-      left: 16px; bottom: 10px;
+      bottom: 10px;
       display: flex;
       flex-direction: column;
       gap: 8px;
     }
+    .touch-move.p1 { left: 16px; }
+    .touch-move.p2 { left: 110px; display: none; }
+    .touch-move.p2 .touch-btn {
+      border-color: rgba(255,136,0,0.5);
+    }
+    .touch-move.p2.active { display: flex; }
     .touch-btn {
       width: 70px; height: 56px;
       background: rgba(255,255,255,0.12);
@@ -279,9 +285,15 @@
   </div>
 
   <div id="touch-controls">
-    <div class="touch-move">
+    <div class="touch-move p1">
+      <div style="color:#4fc3f7;font-size:11px;font-weight:bold;text-align:center;">P1</div>
       <div class="touch-btn" id="touch-up">&#9650;</div>
       <div class="touch-btn" id="touch-down">&#9660;</div>
+    </div>
+    <div class="touch-move p2" id="touch-p2">
+      <div style="color:#ff8800;font-size:11px;font-weight:bold;text-align:center;">P2</div>
+      <div class="touch-btn" id="touch-up2">&#9650;</div>
+      <div class="touch-btn" id="touch-down2">&#9660;</div>
     </div>
     <div class="touch-fire" id="touch-fire">FIRE</div>
   </div>
@@ -504,7 +516,12 @@
         }
       }
       updateModeBtn();
+      updateTouchP2();
       updateUI();
+    }
+
+    function updateTouchP2() {
+      if (touchP2Div) touchP2Div.classList.toggle('active', multiplayerMode);
     }
 
     function updateUI() {
@@ -874,8 +891,8 @@
           if (keys['ArrowUp'] || touchMovingUp) dy -= 1;
           if (keys['ArrowDown'] || touchMovingDown) dy += 1;
         } else {
-          if (keys['w']) dy -= 1;
-          if (keys['s']) dy += 1;
+          if (keys['w'] || touchMovingUp2) dy -= 1;
+          if (keys['s'] || touchMovingDown2) dy += 1;
         }
 
         p.y += dy * pSpeed();
@@ -891,7 +908,7 @@
 
         // Shooting — Shift or touch fire
         if (p.shootCooldown > 0) p.shootCooldown -= dt;
-        if (keys['Shift'] || (p.id === 1 && touchFiring)) shootFrom(p);
+        if (keys['Shift'] || touchFiring) shootFrom(p);
       }
 
       // Spawn enemies from right
@@ -1279,17 +1296,22 @@
     const touchUp = document.getElementById('touch-up');
     const touchDown = document.getElementById('touch-down');
     const touchFire = document.getElementById('touch-fire');
+    const touchUp2 = document.getElementById('touch-up2');
+    const touchDown2 = document.getElementById('touch-down2');
+    const touchP2Div = document.getElementById('touch-p2');
     let touchMovingUp = false, touchMovingDown = false, touchFiring = false;
+    let touchMovingUp2 = false, touchMovingDown2 = false;
 
-    touchUp.addEventListener('touchstart', e => { e.preventDefault(); touchMovingUp = true; }, { passive: false });
-    touchUp.addEventListener('touchend', e => { e.preventDefault(); touchMovingUp = false; }, { passive: false });
-    touchUp.addEventListener('touchcancel', () => { touchMovingUp = false; });
-    touchDown.addEventListener('touchstart', e => { e.preventDefault(); touchMovingDown = true; }, { passive: false });
-    touchDown.addEventListener('touchend', e => { e.preventDefault(); touchMovingDown = false; }, { passive: false });
-    touchDown.addEventListener('touchcancel', () => { touchMovingDown = false; });
-    touchFire.addEventListener('touchstart', e => { e.preventDefault(); touchFiring = true; }, { passive: false });
-    touchFire.addEventListener('touchend', e => { e.preventDefault(); touchFiring = false; }, { passive: false });
-    touchFire.addEventListener('touchcancel', () => { touchFiring = false; });
+    function bindTouch(el, onStart, onEnd) {
+      el.addEventListener('touchstart', e => { e.preventDefault(); onStart(); }, { passive: false });
+      el.addEventListener('touchend', e => { e.preventDefault(); onEnd(); }, { passive: false });
+      el.addEventListener('touchcancel', () => { onEnd(); });
+    }
+    bindTouch(touchUp, () => touchMovingUp = true, () => touchMovingUp = false);
+    bindTouch(touchDown, () => touchMovingDown = true, () => touchMovingDown = false);
+    bindTouch(touchFire, () => touchFiring = true, () => touchFiring = false);
+    bindTouch(touchUp2, () => touchMovingUp2 = true, () => touchMovingUp2 = false);
+    bindTouch(touchDown2, () => touchMovingDown2 = true, () => touchMovingDown2 = false);
 
     // Tap canvas to restart on game over
     canvas.addEventListener('touchstart', e => {
