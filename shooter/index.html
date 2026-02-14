@@ -161,6 +161,74 @@
       #shop-grid { grid-template-columns: repeat(3, 170px); }
       #wall-shop-grid { grid-template-columns: repeat(2, 170px); }
     }
+    @media (max-width: 600px) {
+      #shop-grid { grid-template-columns: repeat(2, 150px); }
+      #wall-shop-grid { grid-template-columns: repeat(2, 150px); }
+      .shop-item .icon { font-size: 24px; }
+      .shop-item .name { font-size: 13px; }
+      .shop-item { padding: 12px 8px; }
+      .shop-close-btn { padding: 12px 32px; font-size: 18px; }
+      #shop-header h1, #wall-shop-header h1 { font-size: 32px; }
+      #btn-row { gap: 6px; flex-wrap: wrap; justify-content: center; }
+      .game-btn { padding: 8px 14px; font-size: 13px; }
+      .game-btn .hint { display: none; }
+      #ui { font-size: 14px; }
+      #stats-ui { display: none; }
+    }
+
+    /* Touch controls */
+    #touch-controls {
+      display: none;
+      position: fixed;
+      bottom: 0; left: 0; right: 0;
+      height: 140px;
+      pointer-events: none;
+      z-index: 60;
+    }
+    @media (hover: none) and (pointer: coarse) {
+      #touch-controls { display: flex; }
+      #btn-row { bottom: 150px; }
+    }
+    .touch-zone {
+      pointer-events: auto;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .touch-move {
+      position: absolute;
+      left: 16px; bottom: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .touch-btn {
+      width: 70px; height: 56px;
+      background: rgba(255,255,255,0.12);
+      border: 2px solid rgba(255,255,255,0.25);
+      border-radius: 14px;
+      color: #fff;
+      font-size: 28px;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none; -webkit-user-select: none;
+      pointer-events: auto;
+      transition: background 0.1s;
+    }
+    .touch-btn:active { background: rgba(255,255,255,0.35); }
+    .touch-fire {
+      position: absolute;
+      right: 16px; bottom: 10px;
+      width: 110px; height: 110px;
+      background: rgba(233,69,96,0.25);
+      border: 3px solid rgba(233,69,96,0.5);
+      border-radius: 50%;
+      color: #fff;
+      font-size: 18px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none; -webkit-user-select: none;
+      pointer-events: auto;
+    }
+    .touch-fire:active { background: rgba(233,69,96,0.5); }
   </style>
 </head>
 <body>
@@ -208,6 +276,14 @@
       P2: <b>W/S</b> to move &bull; <b>Shift</b> to shoot<br>
       Press <b>M</b> anytime to add/remove Player 2
     </div>
+  </div>
+
+  <div id="touch-controls">
+    <div class="touch-move">
+      <div class="touch-btn" id="touch-up">&#9650;</div>
+      <div class="touch-btn" id="touch-down">&#9660;</div>
+    </div>
+    <div class="touch-fire" id="touch-fire">FIRE</div>
   </div>
 
   <div id="shop-screen" class="hidden">
@@ -795,8 +871,8 @@
 
         let dy = 0;
         if (p.id === 1) {
-          if (keys['ArrowUp']) dy -= 1;
-          if (keys['ArrowDown']) dy += 1;
+          if (keys['ArrowUp'] || touchMovingUp) dy -= 1;
+          if (keys['ArrowDown'] || touchMovingDown) dy += 1;
         } else {
           if (keys['w']) dy -= 1;
           if (keys['s']) dy += 1;
@@ -813,9 +889,9 @@
         if (ne) p.angle = Math.atan2(ne.y - p.y, ne.x - p.x);
         else p.angle = 0;
 
-        // Shooting — Shift
+        // Shooting — Shift or touch fire
         if (p.shootCooldown > 0) p.shootCooldown -= dt;
-        if (keys['Shift']) shootFrom(p);
+        if (keys['Shift'] || (p.id === 1 && touchFiring)) shootFrom(p);
       }
 
       // Spawn enemies from right
@@ -1197,6 +1273,27 @@
       if (k==='n' && gameStarted && !gameOver && !paused && !shopOpen) { if(wallShopOpen)closeWallShop(); else openWallShop(); }
       if (k==='m' && gameStarted && !gameOver && !paused && !shopOpen && !wallShopOpen) toggleMultiplayer();
       if (e.key==='Escape') { if(shopOpen)closeShop(); else if(wallShopOpen)closeWallShop(); else if(paused)togglePause(); }
+    });
+
+    // Touch controls
+    const touchUp = document.getElementById('touch-up');
+    const touchDown = document.getElementById('touch-down');
+    const touchFire = document.getElementById('touch-fire');
+    let touchMovingUp = false, touchMovingDown = false, touchFiring = false;
+
+    touchUp.addEventListener('touchstart', e => { e.preventDefault(); touchMovingUp = true; }, { passive: false });
+    touchUp.addEventListener('touchend', e => { e.preventDefault(); touchMovingUp = false; }, { passive: false });
+    touchUp.addEventListener('touchcancel', () => { touchMovingUp = false; });
+    touchDown.addEventListener('touchstart', e => { e.preventDefault(); touchMovingDown = true; }, { passive: false });
+    touchDown.addEventListener('touchend', e => { e.preventDefault(); touchMovingDown = false; }, { passive: false });
+    touchDown.addEventListener('touchcancel', () => { touchMovingDown = false; });
+    touchFire.addEventListener('touchstart', e => { e.preventDefault(); touchFiring = true; }, { passive: false });
+    touchFire.addEventListener('touchend', e => { e.preventDefault(); touchFiring = false; }, { passive: false });
+    touchFire.addEventListener('touchcancel', () => { touchFiring = false; });
+
+    // Tap canvas to restart on game over
+    canvas.addEventListener('touchstart', e => {
+      if (gameOver && gameStarted) { init(); }
     });
 
     // Start

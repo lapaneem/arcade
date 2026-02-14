@@ -46,6 +46,43 @@
       text-align: center;
       color: #94b3e6;
     }
+
+    /* Mobile responsive */
+    @media (max-width: 640px) {
+      #header { width: 95vw; }
+      canvas { width: 95vw; height: 95vw; }
+      #score, #high-score { font-size: 18px; }
+    }
+
+    /* Touch D-pad */
+    #dpad {
+      display: none;
+      position: relative;
+      width: 160px; height: 160px;
+      margin-top: 8px;
+    }
+    @media (hover: none) and (pointer: coarse) {
+      #dpad { display: block; }
+      #message { font-size: 15px; }
+    }
+    .dpad-btn {
+      position: absolute;
+      width: 54px; height: 54px;
+      background: rgba(255,255,255,0.12);
+      border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 12px;
+      color: #fff;
+      font-size: 24px;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none; -webkit-user-select: none;
+      cursor: pointer;
+      transition: background 0.1s;
+    }
+    .dpad-btn:active { background: rgba(255,255,255,0.3); }
+    .dpad-btn.up    { top: 0;   left: 53px; }
+    .dpad-btn.down  { bottom: 0; left: 53px; }
+    .dpad-btn.left  { top: 53px; left: 0; }
+    .dpad-btn.right { top: 53px; right: 0; }
   </style>
 </head>
 <body>
@@ -55,6 +92,12 @@
   </div>
   <canvas id="game" width="602" height="602"></canvas>
   <div id="message">Press any arrow key or WASD to start</div>
+  <div id="dpad">
+    <div class="dpad-btn up" data-dir="up">&#9650;</div>
+    <div class="dpad-btn down" data-dir="down">&#9660;</div>
+    <div class="dpad-btn left" data-dir="left">&#9664;</div>
+    <div class="dpad-btn right" data-dir="right">&#9654;</div>
+  </div>
 
   <script>
     const canvas = document.getElementById('game');
@@ -272,6 +315,47 @@
         started = true;
         messageEl.textContent = '';
       }
+    });
+
+    // Touch: swipe on canvas
+    let touchStartX = 0, touchStartY = 0;
+    canvas.addEventListener('touchstart', e => {
+      e.preventDefault();
+      if (gameOver) { init(); return; }
+      touchStartX = e.touches[0].clientX;
+      touchStartY = e.touches[0].clientY;
+    }, { passive: false });
+    canvas.addEventListener('touchend', e => {
+      e.preventDefault();
+      const dx = e.changedTouches[0].clientX - touchStartX;
+      const dy = e.changedTouches[0].clientY - touchStartY;
+      if (Math.abs(dx) < 10 && Math.abs(dy) < 10) return;
+      let dir;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        dir = dx > 0 ? { x: 1, y: 0 } : { x: -1, y: 0 };
+      } else {
+        dir = dy > 0 ? { x: 0, y: 1 } : { x: 0, y: -1 };
+      }
+      if (started && dir.x === -direction.x && dir.y === -direction.y) return;
+      nextDirection = dir;
+      if (!started) { started = true; messageEl.textContent = ''; }
+    }, { passive: false });
+
+    // Touch: D-pad buttons
+    function handleDpad(dirName) {
+      if (gameOver) { init(); return; }
+      const dirs = { up:{x:0,y:-1}, down:{x:0,y:1}, left:{x:-1,y:0}, right:{x:1,y:0} };
+      const dir = dirs[dirName];
+      if (!dir) return;
+      if (started && dir.x === -direction.x && dir.y === -direction.y) return;
+      nextDirection = dir;
+      if (!started) { started = true; messageEl.textContent = ''; }
+    }
+    document.querySelectorAll('.dpad-btn').forEach(btn => {
+      btn.addEventListener('touchstart', e => {
+        e.preventDefault();
+        handleDpad(btn.dataset.dir);
+      }, { passive: false });
     });
 
     init();
