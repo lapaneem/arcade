@@ -1,0 +1,1214 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Wall Defense</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0a;
+      overflow: hidden;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      cursor: default;
+    }
+    canvas { display: block; }
+
+    /* HUD */
+    #ui {
+      position: absolute; top: 16px; left: 16px; color: #fff; font-size: 18px;
+      pointer-events: none; text-shadow: 0 0 6px rgba(0,0,0,0.8);
+    }
+    #ui div { margin-bottom: 5px; }
+    .health-row { display: flex; align-items: center; gap: 8px; margin-bottom: 4px; }
+    .health-row .label { font-size: 13px; width: 44px; font-weight: bold; }
+    .hbar-bg { width: 160px; height: 12px; background: #333; border-radius: 6px; overflow: hidden; }
+    .hbar { height: 100%; border-radius: 6px; transition: width 0.15s; }
+    .hbar.p1 { background: linear-gradient(90deg, #4fc3f7, #81d4fa); }
+    .hbar.p2 { background: linear-gradient(90deg, #ff8800, #ffaa44); }
+    .hbar.wall { background: linear-gradient(90deg, #53d769, #33cc66); }
+    #coins-text { color: #f0a500; font-weight: bold; }
+    #stats-ui {
+      position: absolute; top: 16px; right: 16px; color: #aaa; font-size: 13px;
+      pointer-events: none; text-shadow: 0 0 6px rgba(0,0,0,0.8); text-align: right; line-height: 1.6;
+    }
+
+    /* Buttons row */
+    #btn-row {
+      position: absolute; bottom: 20px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 12px; z-index: 50;
+    }
+    #btn-row.hidden { display: none; }
+    .game-btn {
+      border: none; padding: 10px 26px; font-size: 16px; font-weight: bold;
+      border-radius: 8px; cursor: pointer; letter-spacing: 1px;
+      transition: transform 0.12s, box-shadow 0.12s; user-select: none;
+    }
+    .game-btn:hover { transform: scale(1.05); }
+    .game-btn .hint { font-size: 11px; font-weight: normal; opacity: 0.7; }
+    #shop-btn { background: linear-gradient(135deg, #f0a500, #ff8800); color: #000; box-shadow: 0 0 15px rgba(240,165,0,0.3); }
+    #wall-shop-btn { background: linear-gradient(135deg, #53d769, #33aa55); color: #000; box-shadow: 0 0 15px rgba(83,215,105,0.3); }
+    #pause-btn { background: linear-gradient(135deg, #4fc3f7, #29b6f6); color: #000; box-shadow: 0 0 15px rgba(79,195,247,0.3); }
+    #mode-btn { background: linear-gradient(135deg, #bb66ff, #9933ff); color: #fff; box-shadow: 0 0 15px rgba(153,51,255,0.3); }
+
+    /* Coin float */
+    .coin-float {
+      position: absolute; color: #f0a500; font-weight: bold; font-size: 16px;
+      pointer-events: none; text-shadow: 0 0 8px rgba(240,165,0,0.6);
+      animation: floatUp 0.8s ease-out forwards; z-index: 40;
+    }
+    @keyframes floatUp { 0% { opacity:1; transform:translateY(0); } 100% { opacity:0; transform:translateY(-40px); } }
+
+    /* Overlays */
+    #overlay {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: #fff; pointer-events: none;
+    }
+    #overlay.hidden { display: none; }
+    #overlay h1 { font-size: 52px; margin-bottom: 8px; }
+    #overlay h2 { font-size: 28px; margin-bottom: 12px; color: #f0a500; }
+    #overlay p { font-size: 20px; color: #aaa; }
+
+    /* Start screen */
+    #start-overlay {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: #fff; background: rgba(0,0,0,0.85);
+    }
+    #start-overlay.hidden { display: none; }
+    #start-overlay h1 { font-size: 56px; margin-bottom: 8px; color: #53d769; }
+    #start-overlay .subtitle { font-size: 20px; color: #e94560; margin-bottom: 16px; }
+    #start-overlay p { font-size: 18px; color: #ccc; margin-bottom: 6px; }
+    .start-btn {
+      margin-top: 28px; padding: 20px 60px; font-size: 26px; font-weight: bold;
+      border: 3px solid #53d769; border-radius: 12px; cursor: pointer; color: #fff;
+      background: rgba(22,33,62,0.9); transition: all 0.15s;
+    }
+    .start-btn:hover { border-color: #f0a500; box-shadow: 0 0 25px rgba(240,165,0,0.3); transform: translateY(-4px); }
+    .controls-info { margin-top: 24px; color: #666; font-size: 14px; line-height: 1.8; text-align: center; }
+
+    /* Pause overlay */
+    #pause-overlay {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      background: rgba(0,0,0,0.6); display: flex; flex-direction: column;
+      justify-content: center; align-items: center; color: #fff; z-index: 150;
+    }
+    #pause-overlay.hidden { display: none; }
+    #pause-overlay h1 { font-size: 56px; margin-bottom: 12px; color: #4fc3f7; }
+    #pause-overlay p { font-size: 20px; color: #aaa; }
+
+    #wave-announce {
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      font-size: 48px; font-weight: bold; color: #f0a500;
+      text-shadow: 0 0 20px rgba(240,165,0,0.6); pointer-events: none; opacity: 0; transition: opacity 0.3s;
+    }
+
+    /* Shop */
+    #shop-screen {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      background: rgba(5,5,15,0.92); z-index: 200; display: flex; flex-direction: column;
+      align-items: center; overflow-y: auto; padding: 30px 20px;
+    }
+    #shop-screen.hidden { display: none; }
+    #shop-header { text-align: center; margin-bottom: 20px; }
+    #shop-header h1 { font-size: 42px; color: #f0a500; margin-bottom: 6px; text-shadow: 0 0 20px rgba(240,165,0,0.4); }
+    #shop-coins { font-size: 24px; color: #f0a500; font-weight: bold; }
+    #shop-threat { font-size: 15px; color: #ff4444; margin-top: 4px; }
+    #shop-grid { display: grid; grid-template-columns: repeat(5, 180px); gap: 14px; max-width: 960px; }
+    .shop-item {
+      background: rgba(22,33,62,0.95); border: 2px solid #0f3460; border-radius: 10px;
+      padding: 16px 12px; text-align: center; color: #fff; cursor: pointer;
+      transition: transform 0.12s, border-color 0.12s, box-shadow 0.12s;
+    }
+    .shop-item:hover { transform: translateY(-4px); border-color: #f0a500; box-shadow: 0 0 20px rgba(240,165,0,0.25); }
+    .shop-item.maxed { opacity: 0.4; cursor: default; border-color: #333; }
+    .shop-item.maxed:hover { transform: none; border-color: #333; box-shadow: none; }
+    .shop-item.cant-afford { border-color: #331111; }
+    .shop-item.cant-afford:hover { border-color: #663333; box-shadow: 0 0 15px rgba(255,50,50,0.15); }
+    .shop-item .icon { font-size: 32px; display: block; margin-bottom: 8px; }
+    .shop-item .name { font-size: 15px; font-weight: bold; margin-bottom: 4px; }
+    .shop-item .desc { font-size: 11px; color: #888; line-height: 1.3; margin-bottom: 8px; }
+    .shop-item .level-bar { display: flex; gap: 3px; justify-content: center; margin-bottom: 8px; }
+    .shop-item .level-pip { width: 8px; height: 8px; border-radius: 50%; background: #1a1a2e; border: 1px solid #333; }
+    .shop-item .level-pip.filled { background: #f0a500; border-color: #f0a500; box-shadow: 0 0 4px rgba(240,165,0,0.5); }
+    .shop-item .price { font-size: 16px; font-weight: bold; color: #f0a500; }
+    .shop-item .price.too-expensive { color: #ff4444; }
+    .shop-item .maxed-label { font-size: 13px; color: #53d769; font-weight: bold; }
+    .shop-close-btn {
+      margin-top: 24px; border: none; padding: 14px 48px; font-size: 20px; font-weight: bold;
+      border-radius: 8px; cursor: pointer; transition: transform 0.12s; letter-spacing: 1px;
+    }
+    .shop-close-btn:hover { transform: scale(1.05); }
+    .shop-close-btn .hint { font-size: 12px; font-weight: normal; opacity: 0.7; }
+    #shop-close { background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff; }
+    #wall-shop-close { background: linear-gradient(135deg, #e94560, #ff6b6b); color: #fff; }
+
+    /* Wall shop */
+    #wall-shop-screen {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      background: rgba(5,15,5,0.92); z-index: 200; display: flex; flex-direction: column;
+      align-items: center; overflow-y: auto; padding: 30px 20px;
+    }
+    #wall-shop-screen.hidden { display: none; }
+    #wall-shop-header { text-align: center; margin-bottom: 20px; }
+    #wall-shop-header h1 { font-size: 42px; color: #53d769; margin-bottom: 6px; text-shadow: 0 0 20px rgba(83,215,105,0.4); }
+    #wall-shop-coins { font-size: 24px; color: #f0a500; font-weight: bold; }
+    #wall-shop-status { font-size: 15px; color: #53d769; margin-top: 4px; }
+    #wall-shop-grid { display: grid; grid-template-columns: repeat(4, 180px); gap: 14px; max-width: 780px; }
+
+    @media (max-width: 1000px) {
+      #shop-grid { grid-template-columns: repeat(3, 170px); }
+      #wall-shop-grid { grid-template-columns: repeat(2, 170px); }
+    }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="ui">
+    <div id="score-text">Score: 0</div>
+    <div id="wave-text">Wave: 1</div>
+    <div id="kills-text">Kills: 0</div>
+    <div id="coins-text">Coins: 0</div>
+    <div id="health-bars"></div>
+  </div>
+  <div id="stats-ui"></div>
+  <div id="wave-announce"></div>
+
+  <div id="btn-row" class="hidden">
+    <button id="pause-btn" class="game-btn">PAUSE <span class="hint">[P]</span></button>
+    <button id="shop-btn" class="game-btn">PLAYER SHOP <span class="hint">[B]</span></button>
+    <button id="wall-shop-btn" class="game-btn">WALL SHOP <span class="hint">[N]</span></button>
+    <button id="mode-btn" class="game-btn">2 PLAYERS <span class="hint">[M]</span></button>
+  </div>
+
+  <div id="pause-overlay" class="hidden">
+    <h1>PAUSED</h1>
+    <p>Press P or click Resume to continue</p>
+    <button class="game-btn" id="resume-btn" style="margin-top:20px;background:linear-gradient(135deg,#53d769,#33cc66);color:#000;padding:14px 40px;font-size:20px;">RESUME</button>
+  </div>
+
+  <div id="overlay" class="hidden">
+    <h1>Game Over</h1>
+    <h2 id="final-score">Score: 0</h2>
+    <p id="final-kills">Kills: 0</p>
+    <p id="final-reason" style="margin-top:8px;color:#e94560;font-size:18px;"></p>
+    <p style="margin-top:12px;">Click or press Space to restart</p>
+  </div>
+
+  <div id="start-overlay">
+    <h1>Wall Defense</h1>
+    <div class="subtitle">Protect the wall at all costs!</div>
+    <p>Enemies attack from the right — hold the line!</p>
+    <p style="color:#888;font-size:15px;">P to pause &bull; B player shop &bull; N wall shop &bull; M toggle players</p>
+    <button class="start-btn" id="start-btn">START GAME</button>
+    <div class="controls-info">
+      P1: <b>Arrow Up/Down</b> to move &bull; <b>Shift</b> to shoot<br>
+      P2: <b>W/S</b> to move &bull; <b>Shift</b> to shoot<br>
+      Press <b>M</b> anytime to add/remove Player 2
+    </div>
+  </div>
+
+  <div id="shop-screen" class="hidden">
+    <div id="shop-header">
+      <h1>UPGRADE SHOP</h1>
+      <div id="shop-coins">Coins: 0</div>
+      <div id="shop-threat"></div>
+    </div>
+    <div id="shop-grid"></div>
+    <button id="shop-close" class="shop-close-btn">BACK TO GAME <span class="hint">[B / Esc]</span></button>
+  </div>
+
+  <div id="wall-shop-screen" class="hidden">
+    <div id="wall-shop-header">
+      <h1>WALL UPGRADES</h1>
+      <div id="wall-shop-coins">Coins: 0</div>
+      <div id="wall-shop-status"></div>
+    </div>
+    <div id="wall-shop-grid"></div>
+    <button id="wall-shop-close" class="shop-close-btn">BACK TO GAME <span class="hint">[N / Esc]</span></button>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreText = document.getElementById('score-text');
+    const waveText = document.getElementById('wave-text');
+    const killsText = document.getElementById('kills-text');
+    const coinsText = document.getElementById('coins-text');
+    const healthBarsDiv = document.getElementById('health-bars');
+    const statsUI = document.getElementById('stats-ui');
+    const overlay = document.getElementById('overlay');
+    const finalScore = document.getElementById('final-score');
+    const finalKills = document.getElementById('final-kills');
+    const finalReason = document.getElementById('final-reason');
+    const startOverlay = document.getElementById('start-overlay');
+    const waveAnnounce = document.getElementById('wave-announce');
+    const btnRow = document.getElementById('btn-row');
+    const shopBtn = document.getElementById('shop-btn');
+    const pauseBtn = document.getElementById('pause-btn');
+    const modeBtn = document.getElementById('mode-btn');
+    const pauseOverlay = document.getElementById('pause-overlay');
+    const resumeBtn = document.getElementById('resume-btn');
+    const shopScreen = document.getElementById('shop-screen');
+    const shopGrid = document.getElementById('shop-grid');
+    const shopCoins = document.getElementById('shop-coins');
+    const shopThreat = document.getElementById('shop-threat');
+    const shopClose = document.getElementById('shop-close');
+    const wallShopBtn = document.getElementById('wall-shop-btn');
+    const wallShopScreen = document.getElementById('wall-shop-screen');
+    const wallShopGrid = document.getElementById('wall-shop-grid');
+    const wallShopCoins = document.getElementById('wall-shop-coins');
+    const wallShopStatus = document.getElementById('wall-shop-status');
+    const wallShopClose = document.getElementById('wall-shop-close');
+
+    let W, H;
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // Input
+    const keys = {};
+    document.addEventListener('keydown', e => {
+      keys[e.key] = true;
+      keys[e.key.toLowerCase()] = true;
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+    });
+    document.addEventListener('keyup', e => {
+      keys[e.key] = false;
+      keys[e.key.toLowerCase()] = false;
+    });
+
+    // WALL — the thing we protect (left side)
+    const WALL_X = 60;
+    const WALL_WIDTH = 20;
+    let wall;
+    const WALL_MAX_HP = 800;
+
+    // Player lane — players stand a bit in front of the wall, move up/down only
+    const PLAYER_LANE_X_OFFSET = 80; // distance from wall
+
+    const PLAYER_RADIUS = 16;
+
+    // Player Upgrades
+    const PLAYER_UPGRADES = {
+      damage:     { icon:'⚔️',  name:'Damage Up',       desc:'+25% bullet damage',        max:20, baseCost:10,  color:'#e94560' },
+      fireRate:   { icon:'🔥', name:'Fire Rate',        desc:'+15% fire rate',             max:20, baseCost:10,  color:'#ff8800' },
+      speed:      { icon:'👟', name:'Move Speed',       desc:'+10% move speed (up/down)',  max:15, baseCost:8,   color:'#53d769' },
+      maxHp:      { icon:'❤️',  name:'Max Health',       desc:'+20 max HP & heal 20',       max:20, baseCost:12,  color:'#ff6b6b' },
+      bulletSize: { icon:'🔵', name:'Bullet Size',      desc:'+20% bullet size',           max:10, baseCost:8,   color:'#4fc3f7' },
+      bulletSpeed:{ icon:'💨', name:'Bullet Speed',     desc:'+15% bullet velocity',       max:10, baseCost:8,   color:'#aaddff' },
+      pierce:     { icon:'🗡️',  name:'Piercing',         desc:'Bullets pierce +1 enemy',    max:5,  baseCost:25,  color:'#ff44ff' },
+      multishot:  { icon:'🌟', name:'Multi Shot',       desc:'Fire +1 extra bullet',       max:4,  baseCost:35,  color:'#f0a500' },
+      lifesteal:  { icon:'🩸', name:'Life Steal',       desc:'Heal 3 HP per kill',         max:8,  baseCost:15,  color:'#cc3333' },
+      armor:      { icon:'🛡️',  name:'Armor',            desc:'-8% damage taken',           max:10, baseCost:12,  color:'#8888ff' },
+      regen:      { icon:'💚', name:'Regen',            desc:'Regenerate 1 HP/sec',        max:5,  baseCost:20,  color:'#33cc66' },
+      explosive:  { icon:'💥', name:'Explosive Rounds', desc:'Bullets explode on hit',     max:5,  baseCost:30,  color:'#ff6600' },
+      magnet:     { icon:'🧲', name:'Magnet',           desc:'Pull pickups from further',  max:5,  baseCost:10,  color:'#cc88ff' },
+      critChance: { icon:'🎯', name:'Critical Hit',     desc:'+10% crit chance (2x dmg)',  max:8,  baseCost:18,  color:'#ffdd44' },
+    };
+
+    // Wall Upgrades (separate shop)
+    const WALL_UPGRADES = {
+      wallArmor:   { icon:'🏰', name:'Wall Armor',       desc:'-10% damage to wall',        max:10, baseCost:15,  color:'#88ccff' },
+      wallRegen:   { icon:'🔧', name:'Wall Repair',      desc:'Repair wall 3 HP/sec',       max:5,  baseCost:25,  color:'#44ff88' },
+      wallMaxHp:   { icon:'🧱', name:'Wall Fortify',     desc:'+100 max wall HP & heal',    max:10, baseCost:20,  color:'#53d769' },
+      wallThorns:  { icon:'🌵', name:'Wall Thorns',      desc:'Enemies take 2 dmg on hit',  max:8,  baseCost:18,  color:'#ff6644' },
+      wallSlow:    { icon:'❄️',  name:'Frost Wall',       desc:'Slow enemies near wall 10%', max:5,  baseCost:22,  color:'#88ddff' },
+      wallShock:   { icon:'⚡', name:'Shock Wall',       desc:'Zap nearby enemy 1 dmg/sec', max:5,  baseCost:30,  color:'#ffdd44' },
+      wallHealPulse:{ icon:'💖', name:'Heal Pulse',      desc:'Heal players 2 HP/sec near wall', max:5, baseCost:28, color:'#ff88cc' },
+      wallCoinBonus:{ icon:'💰', name:'Wall Bounty',     desc:'+15% coins from kills',      max:5,  baseCost:20,  color:'#f0a500' },
+      wallTurret:   { icon:'🔫', name:'Wall Turret',     desc:'Auto-turret on wall, +1 turret', max:5, baseCost:40, color:'#ff44ff' },
+    };
+
+    // Merge all for upgradeLevels tracking
+    const ALL_UPGRADES = { ...PLAYER_UPGRADES, ...WALL_UPGRADES };
+    function upgradeCost(key) { return Math.round(ALL_UPGRADES[key].baseCost * Math.pow(1.5, upgradeLevels[key])); }
+
+    // State
+    let players, bullets, enemies, particles, pickups;
+    let score, kills, coins, wave, enemiesRemaining, spawnTimer, gameOver, gameStarted;
+    let screenShake, shakeX, shakeY, upgradeLevels, shopOpen, wallShopOpen, paused, multiplayerMode;
+    let regenAccumulator, wallRegenAccumulator, wallHealPulseAcc, wallShockAcc;
+    let turrets, turretBullets;
+
+    function pSpeed() { return 4.5 * (1 + upgradeLevels.speed * 0.10); }
+    function pShootDelay() { return 120 / (1 + upgradeLevels.fireRate * 0.15); }
+    function pDamage() { return 1 * (1 + upgradeLevels.damage * 0.25); }
+    function pBulletSize() { return 4 * (1 + upgradeLevels.bulletSize * 0.20); }
+    function pBulletSpeed() { return 12 * (1 + upgradeLevels.bulletSpeed * 0.15); }
+    function pArmorMult() { return Math.pow(0.92, upgradeLevels.armor); }
+    function pCritChance() { return upgradeLevels.critChance * 0.10; }
+    function wallArmorMult() { return Math.pow(0.90, upgradeLevels.wallArmor); }
+
+    function totalUpgrades() { let s=0; for(const k in upgradeLevels) s+=upgradeLevels[k]; return s; }
+    function enemyHpScale() { return 1 + totalUpgrades() * 0.12; }
+    function enemySpeedScale() { return 1 + totalUpgrades() * 0.03; }
+    function enemySizeScale() { return 1 + totalUpgrades() * 0.008; }
+    function enemyCountBonus() { return Math.floor(totalUpgrades() / 5); }
+    function enemyCoinReward(type) {
+      const b = type==='tank'?8:type==='fast'?5:3;
+      return Math.round(b * (1 + wave * 0.15));
+    }
+
+    function makePlayer(x, y, color, id) {
+      return { x, y, hp:100, maxHp:100, angle:0, invincible:0, color, id,
+               shootCooldown:0, alive:true };
+    }
+
+    function init() {
+      upgradeLevels = {};
+      for (const k in ALL_UPGRADES) upgradeLevels[k] = 0;
+
+      wall = { hp: WALL_MAX_HP, maxHp: WALL_MAX_HP };
+
+      const laneX = WALL_X + WALL_WIDTH + PLAYER_LANE_X_OFFSET;
+      players = [makePlayer(laneX, H/2, '#4fc3f7', 1)];
+      if (multiplayerMode) {
+        players.push(makePlayer(laneX, H/2, '#ff8800', 2));
+        // Spread them out
+        players[0].y = H * 0.35;
+        players[1].y = H * 0.65;
+      }
+
+      bullets = []; enemies = []; particles = []; pickups = [];
+      turrets = []; turretBullets = [];
+      score = 0; kills = 0; coins = 0; wave = 0; enemiesRemaining = 0; spawnTimer = 0;
+      gameOver = false; shopOpen = false; wallShopOpen = false; paused = false;
+      screenShake = 0; shakeX = 0; shakeY = 0; regenAccumulator = 0; wallRegenAccumulator = 0;
+      wallHealPulseAcc = 0; wallShockAcc = 0;
+      overlay.classList.add('hidden');
+      shopScreen.classList.add('hidden');
+      wallShopScreen.classList.add('hidden');
+      pauseOverlay.classList.add('hidden');
+      btnRow.classList.remove('hidden');
+      updateModeBtn();
+      updateUI();
+      nextWave();
+    }
+
+    function nextWave() {
+      wave++;
+      const mp = multiplayerMode ? 1.4 : 1;
+      enemiesRemaining = Math.round((4 + wave * 3 + enemyCountBonus()) * mp);
+      spawnTimer = 0;
+      waveText.textContent = `Wave: ${wave}`;
+      waveAnnounce.textContent = `Wave ${wave}`;
+      waveAnnounce.style.opacity = '1';
+      setTimeout(() => { waveAnnounce.style.opacity = '0'; }, 1500);
+    }
+
+    function updateModeBtn() {
+      modeBtn.innerHTML = multiplayerMode
+        ? '1 PLAYER <span class="hint">[M]</span>'
+        : '2 PLAYERS <span class="hint">[M]</span>';
+    }
+
+    function toggleMultiplayer() {
+      if (gameOver) return;
+      multiplayerMode = !multiplayerMode;
+      const laneX = WALL_X + WALL_WIDTH + PLAYER_LANE_X_OFFSET;
+      if (multiplayerMode) {
+        // Add P2
+        if (players.length < 2) {
+          const p2 = makePlayer(laneX, H * 0.65, '#ff8800', 2);
+          p2.maxHp = players[0].maxHp;
+          p2.hp = p2.maxHp;
+          players.push(p2);
+          players[0].y = H * 0.35;
+          spawnParticles(p2.x, p2.y, '#ff8800', 12, 4);
+        }
+      } else {
+        // Remove P2
+        if (players.length > 1) {
+          spawnParticles(players[1].x, players[1].y, '#ff8800', 12, 4);
+          players.splice(1, 1);
+          players[0].y = Math.max(PLAYER_RADIUS, Math.min(H - PLAYER_RADIUS, players[0].y));
+        }
+      }
+      updateModeBtn();
+      updateUI();
+    }
+
+    function updateUI() {
+      scoreText.textContent = `Score: ${score}`;
+      killsText.textContent = `Kills: ${kills}`;
+      coinsText.textContent = `Coins: ${coins}`;
+
+      let html = '';
+      // Wall health
+      const wallPct = Math.max(0, wall.hp / wall.maxHp * 100);
+      const wallBarColor = wallPct < 30 ? 'background:linear-gradient(90deg,#ff0000,#ff4444)' : '';
+      html += `<div class="health-row"><span class="label" style="color:#53d769">WALL</span>
+        <div class="hbar-bg" style="width:200px"><div class="hbar wall" style="width:${wallPct}%;${wallBarColor}"></div></div></div>`;
+
+      for (const p of players) {
+        const pct = Math.max(0, p.hp / p.maxHp * 100);
+        const cls = p.id === 1 ? 'p1' : 'p2';
+        const label = players.length > 1 ? `P${p.id}` : 'YOU';
+        const barColor = !p.alive ? 'background:#555' : pct < 30 ? 'background:linear-gradient(90deg,#ff0000,#ff4444)' : '';
+        html += `<div class="health-row"><span class="label" style="color:${p.color}">${label}</span>
+          <div class="hbar-bg"><div class="hbar ${cls}" style="width:${pct}%;${barColor}"></div></div></div>`;
+      }
+      healthBarsDiv.innerHTML = html;
+
+      const lines = [];
+      const tu = totalUpgrades();
+      if (tu > 0) {
+        lines.push(`<span style="color:#ff4444">Enemy Threat: +${Math.round((enemyHpScale()-1)*100)}%</span>`);
+        lines.push('---');
+      }
+      for (const k in ALL_UPGRADES) {
+        if (upgradeLevels[k] > 0) lines.push(`<span style="color:${ALL_UPGRADES[k].color}">${ALL_UPGRADES[k].name}</span> Lv.${upgradeLevels[k]}`);
+      }
+      statsUI.innerHTML = lines.join('<br>');
+    }
+
+    function showCoinFloat(x, y, amount) {
+      const el = document.createElement('div');
+      el.className = 'coin-float'; el.textContent = `+${amount}`;
+      el.style.left = x+'px'; el.style.top = y+'px';
+      document.body.appendChild(el);
+      setTimeout(() => el.remove(), 800);
+    }
+
+    // Pause
+    function togglePause() {
+      if (gameOver || shopOpen || wallShopOpen) return;
+      paused = !paused;
+      pauseOverlay.classList.toggle('hidden', !paused);
+    }
+    pauseBtn.addEventListener('click', e => { e.stopPropagation(); togglePause(); });
+    resumeBtn.addEventListener('click', e => { e.stopPropagation(); if(paused) togglePause(); });
+
+    // Shop
+    function openShop() { shopOpen = true; shopScreen.classList.remove('hidden'); renderShop(); }
+    function closeShop() { shopOpen = false; shopScreen.classList.add('hidden'); }
+    function renderShop() {
+      shopCoins.textContent = `Coins: ${coins}`;
+      const tu = totalUpgrades();
+      shopThreat.textContent = tu > 0
+        ? `Enemy Threat: +${Math.round((enemyHpScale()-1)*100)}% (each upgrade makes enemies tougher!)`
+        : 'Buying upgrades will make enemies stronger too!';
+      shopGrid.innerHTML = '';
+      for (const key in PLAYER_UPGRADES) {
+        const u = PLAYER_UPGRADES[key]; const lvl = upgradeLevels[key];
+        const isMaxed = lvl >= u.max; const cost = upgradeCost(key); const canAfford = coins >= cost;
+        const item = document.createElement('div');
+        item.className = 'shop-item';
+        if (isMaxed) item.classList.add('maxed');
+        else if (!canAfford) item.classList.add('cant-afford');
+        let levelHTML = '';
+        if (u.max <= 10) {
+          let pips = '';
+          for (let i = 0; i < u.max; i++) pips += `<div class="level-pip ${i<lvl?'filled':''}"></div>`;
+          levelHTML = `<div class="level-bar">${pips}</div>`;
+        } else {
+          levelHTML = `<div style="font-size:11px;color:#888;margin-bottom:8px;">Lv. ${lvl} / ${u.max}</div>`;
+        }
+        const priceHTML = isMaxed ? `<div class="maxed-label">MAXED</div>`
+          : `<div class="price ${canAfford?'':'too-expensive'}">${cost} coins</div>`;
+        item.innerHTML = `<span class="icon">${u.icon}</span>
+          <div class="name" style="color:${u.color}">${u.name}</div>
+          <div class="desc">${u.desc}</div>${levelHTML}${priceHTML}`;
+        if (!isMaxed) item.addEventListener('click', () => buyUpgrade(key));
+        shopGrid.appendChild(item);
+      }
+    }
+    function buyUpgrade(key) {
+      const cost = upgradeCost(key);
+      if (coins < cost || upgradeLevels[key] >= ALL_UPGRADES[key].max) return;
+      coins -= cost; upgradeLevels[key]++;
+      if (key === 'maxHp') {
+        for (const p of players) { p.maxHp += 20; p.hp = Math.min(p.maxHp, p.hp + 20); }
+      }
+      if (key === 'wallMaxHp') {
+        wall.maxHp += 100; wall.hp = Math.min(wall.maxHp, wall.hp + 100);
+      }
+      if (key === 'wallTurret') { rebuildTurrets(); }
+      updateUI();
+      if (shopOpen) renderShop();
+      if (wallShopOpen) renderWallShop();
+    }
+    shopBtn.addEventListener('click', e => { e.stopPropagation(); if(!gameOver && !paused && !wallShopOpen) openShop(); });
+    shopClose.addEventListener('click', () => closeShop());
+
+    // Wall Shop
+    function openWallShop() { wallShopOpen = true; wallShopScreen.classList.remove('hidden'); renderWallShop(); }
+    function closeWallShop() { wallShopOpen = false; wallShopScreen.classList.add('hidden'); }
+    function renderWallShop() {
+      wallShopCoins.textContent = `Coins: ${coins}`;
+      wallShopStatus.textContent = `Wall HP: ${Math.ceil(wall.hp)} / ${wall.maxHp}`;
+      wallShopGrid.innerHTML = '';
+      for (const key in WALL_UPGRADES) {
+        const u = WALL_UPGRADES[key]; const lvl = upgradeLevels[key];
+        const isMaxed = lvl >= u.max; const cost = upgradeCost(key); const canAfford = coins >= cost;
+        const item = document.createElement('div');
+        item.className = 'shop-item';
+        if (isMaxed) item.classList.add('maxed');
+        else if (!canAfford) item.classList.add('cant-afford');
+        let levelHTML = '';
+        if (u.max <= 10) {
+          let pips = '';
+          for (let i = 0; i < u.max; i++) pips += `<div class="level-pip ${i<lvl?'filled':''}"></div>`;
+          levelHTML = `<div class="level-bar">${pips}</div>`;
+        } else {
+          levelHTML = `<div style="font-size:11px;color:#888;margin-bottom:8px;">Lv. ${lvl} / ${u.max}</div>`;
+        }
+        const priceHTML = isMaxed ? `<div class="maxed-label">MAXED</div>`
+          : `<div class="price ${canAfford?'':'too-expensive'}">${cost} coins</div>`;
+        item.innerHTML = `<span class="icon">${u.icon}</span>
+          <div class="name" style="color:${u.color}">${u.name}</div>
+          <div class="desc">${u.desc}</div>${levelHTML}${priceHTML}`;
+        if (!isMaxed) item.addEventListener('click', () => buyUpgrade(key));
+        wallShopGrid.appendChild(item);
+      }
+    }
+    wallShopBtn.addEventListener('click', e => { e.stopPropagation(); if(!gameOver && !paused && !shopOpen) openWallShop(); });
+    wallShopClose.addEventListener('click', () => closeWallShop());
+    modeBtn.addEventListener('click', e => { e.stopPropagation(); if(!paused && !shopOpen && !wallShopOpen) toggleMultiplayer(); });
+
+    // Turrets
+    function rebuildTurrets() {
+      turrets = [];
+      const count = upgradeLevels.wallTurret;
+      for (let i = 0; i < count; i++) {
+        const spacing = H / (count + 1);
+        turrets.push({ y: spacing * (i + 1), cooldown: 0, angle: 0 });
+      }
+    }
+
+    // Find nearest enemy to a point
+    function nearestEnemy(x, y) {
+      let best = null, bestDist = Infinity;
+      for (const e of enemies) {
+        const d = Math.hypot(e.x - x, e.y - y);
+        if (d < bestDist) { bestDist = d; best = e; }
+      }
+      return best;
+    }
+
+    // Shoot — auto-aim nearest enemy, always fires to the right
+    function shootFrom(p) {
+      if (p.shootCooldown > 0 || !p.alive) return;
+      const ne = nearestEnemy(p.x, p.y);
+      if (ne) {
+        p.angle = Math.atan2(ne.y - p.y, ne.x - p.x);
+      } else {
+        p.angle = 0; // default: shoot right
+      }
+      p.shootCooldown = pShootDelay();
+      const angle = p.angle;
+      const numShots = 1 + upgradeLevels.multishot;
+      const spread = numShots > 1 ? 0.15 : 0;
+      const startAngle = angle - spread * (numShots - 1) / 2;
+      for (let i = 0; i < numShots; i++) {
+        const a = startAngle + i * spread + (numShots > 1 ? (Math.random()-0.5)*0.04 : 0);
+        const spd = pBulletSpeed();
+        const isCrit = Math.random() < pCritChance();
+        const dmg = pDamage() * (isCrit ? 2 : 1);
+        bullets.push({
+          x: p.x + Math.cos(a)*20, y: p.y + Math.sin(a)*20,
+          vx: Math.cos(a)*spd, vy: Math.sin(a)*spd,
+          radius: pBulletSize(), damage: dmg, life: 600,
+          pierce: upgradeLevels.pierce, crit: isCrit, owner: p.id,
+        });
+      }
+      screenShake = 2 + upgradeLevels.multishot * 0.5;
+    }
+
+    function explodeBullet(x, y) {
+      const radius = 30 + upgradeLevels.explosive * 10;
+      const dmg = pDamage() * 0.5;
+      spawnParticles(x, y, '#ff6600', 10, 6);
+      for (let j = enemies.length - 1; j >= 0; j--) {
+        const e = enemies[j];
+        if (Math.hypot(x-e.x, y-e.y) < radius + e.radius) {
+          e.hp -= dmg; e.flash = 80;
+          if (e.hp <= 0) { onEnemyKilled(e); enemies.splice(j, 1); }
+        }
+      }
+    }
+
+    function onEnemyKilled(e) {
+      score += e.score; kills++;
+      const coinBonus = 1 + upgradeLevels.wallCoinBonus * 0.15;
+      const reward = Math.round(e.coinReward * coinBonus); coins += reward;
+      spawnParticles(e.x, e.y, e.color, 12, 5);
+      spawnParticles(e.x, e.y, '#f0a500', 5, 3);
+      screenShake = 4;
+      showCoinFloat(e.x, e.y - 20, reward);
+      if (upgradeLevels.lifesteal > 0) {
+        for (const p of players) {
+          if (p.alive) p.hp = Math.min(p.maxHp, p.hp + upgradeLevels.lifesteal * 3);
+        }
+      }
+      if (Math.random() < 0.15) pickups.push({ x:e.x, y:e.y, type:'health', radius:12, life:8000 });
+      updateUI();
+    }
+
+    function spawnParticles(x, y, color, count, speed) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random()*Math.PI*2, s = Math.random()*speed+1;
+        particles.push({ x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s,
+          radius:Math.random()*3+1, color, life:300+Math.random()*300, maxLife:600 });
+      }
+    }
+
+    function spawnEnemy() {
+      const types = ['basic','fast','tank'];
+      const weights = wave<3?[1,0,0]:wave<6?[0.6,0.3,0.1]:[0.4,0.3,0.3];
+      let r=Math.random(), cum=0, type='basic';
+      for (let i=0;i<types.length;i++){cum+=weights[i]; if(r<cum){type=types[i];break;}}
+
+      // Spawn from the right edge
+      const x = W + 30;
+      const y = 40 + Math.random() * (H - 80);
+
+      const hpS=enemyHpScale(), spdS=enemySpeedScale(), szS=enemySizeScale();
+      const configs = {
+        basic:{radius:Math.round(14*szS),speed:(2.0+wave*0.12)*spdS,hp:Math.ceil(2*hpS),color:'#e94560',score:10},
+        fast:{radius:Math.round(10*szS),speed:(3.8+wave*0.12)*spdS,hp:Math.ceil(1*hpS),color:'#ffcc00',score:20},
+        tank:{radius:Math.round(22*szS),speed:(1.2+wave*0.06)*spdS,hp:Math.ceil(6*hpS),color:'#8844ff',score:30},
+      };
+      const c=configs[type];
+      c.score=Math.round(c.score*(1+totalUpgrades()*0.05));
+      enemies.push({x,y,radius:c.radius,speed:c.speed,hp:c.hp,maxHp:c.hp,color:c.color,score:c.score,type,flash:0,coinReward:enemyCoinReward(type)});
+    }
+
+    function doGameOver(reason) {
+      gameOver = true;
+      finalScore.textContent = `Score: ${score}`;
+      finalKills.textContent = `Kills: ${kills} | Coins: ${coins}`;
+      finalReason.textContent = reason;
+      overlay.classList.remove('hidden');
+      btnRow.classList.add('hidden');
+    }
+
+    // Update
+    let lastTimestamp = null;
+    function update(dt) {
+      if (gameOver || shopOpen || wallShopOpen || paused) return;
+
+      // Player regen
+      if (upgradeLevels.regen > 0) {
+        regenAccumulator += dt;
+        if (regenAccumulator >= 1000) {
+          regenAccumulator -= 1000;
+          for (const p of players) { if(p.alive) p.hp = Math.min(p.maxHp, p.hp + upgradeLevels.regen); }
+          updateUI();
+        }
+      }
+
+      // Wall repair
+      if (upgradeLevels.wallRegen > 0) {
+        wallRegenAccumulator += dt;
+        if (wallRegenAccumulator >= 1000) {
+          wallRegenAccumulator -= 1000;
+          wall.hp = Math.min(wall.maxHp, wall.hp + upgradeLevels.wallRegen * 3);
+          updateUI();
+        }
+      }
+
+      // Wall heal pulse — heal nearby players
+      if (upgradeLevels.wallHealPulse > 0) {
+        wallHealPulseAcc += dt;
+        if (wallHealPulseAcc >= 1000) {
+          wallHealPulseAcc -= 1000;
+          const healRange = 200;
+          for (const p of players) {
+            if (p.alive && p.x < WALL_X + WALL_WIDTH + healRange) {
+              p.hp = Math.min(p.maxHp, p.hp + upgradeLevels.wallHealPulse * 2);
+            }
+          }
+          updateUI();
+        }
+      }
+
+      // Wall shock — zap nearby enemies
+      if (upgradeLevels.wallShock > 0) {
+        wallShockAcc += dt;
+        if (wallShockAcc >= 1000) {
+          wallShockAcc -= 1000;
+          const shockRange = 120;
+          const wallRight = WALL_X + WALL_WIDTH;
+          for (let j = enemies.length - 1; j >= 0; j--) {
+            const e = enemies[j];
+            if (e.x - e.radius < wallRight + shockRange) {
+              e.hp -= upgradeLevels.wallShock;
+              e.flash = 60;
+              spawnParticles(e.x, e.y, '#ffdd44', 3, 2);
+              if (e.hp <= 0) { onEnemyKilled(e); enemies.splice(j, 1); }
+            }
+          }
+        }
+      }
+
+      // Turrets — auto-shoot
+      const turretDmg = pDamage() * 0.6;
+      const turretFireRate = 400;
+      const turretX = WALL_X + WALL_WIDTH + 10;
+      for (const t of turrets) {
+        t.cooldown -= dt;
+        const ne = nearestEnemy(turretX, t.y);
+        if (ne) {
+          t.angle = Math.atan2(ne.y - t.y, ne.x - turretX);
+          if (t.cooldown <= 0) {
+            t.cooldown = turretFireRate;
+            const spd = 10;
+            turretBullets.push({
+              x: turretX + Math.cos(t.angle) * 14,
+              y: t.y + Math.sin(t.angle) * 14,
+              vx: Math.cos(t.angle) * spd,
+              vy: Math.sin(t.angle) * spd,
+              radius: 3, damage: turretDmg, life: 400,
+            });
+          }
+        } else {
+          t.angle = 0;
+        }
+      }
+
+      // Turret bullets
+      for (let i = turretBullets.length - 1; i >= 0; i--) {
+        const b = turretBullets[i];
+        b.x += b.vx; b.y += b.vy; b.life -= dt;
+        if (b.life <= 0 || b.x < -20 || b.x > W + 20 || b.y < -20 || b.y > H + 20) { turretBullets.splice(i, 1); continue; }
+        for (let j = enemies.length - 1; j >= 0; j--) {
+          const e = enemies[j];
+          if (Math.hypot(b.x - e.x, b.y - e.y) < b.radius + e.radius) {
+            e.hp -= b.damage; e.flash = 80;
+            spawnParticles(b.x, b.y, '#ff44ff', 3, 2);
+            if (e.hp <= 0) { onEnemyKilled(e); enemies.splice(j, 1); }
+            turretBullets.splice(i, 1);
+            break;
+          }
+        }
+      }
+
+      const laneX = WALL_X + WALL_WIDTH + PLAYER_LANE_X_OFFSET;
+
+      // Update players — UP/DOWN only
+      for (const p of players) {
+        if (!p.alive) continue;
+
+        let dy = 0;
+        if (p.id === 1) {
+          if (keys['ArrowUp']) dy -= 1;
+          if (keys['ArrowDown']) dy += 1;
+        } else {
+          if (keys['w']) dy -= 1;
+          if (keys['s']) dy += 1;
+        }
+
+        p.y += dy * pSpeed();
+        p.x = laneX; // locked to lane
+        p.y = Math.max(PLAYER_RADIUS, Math.min(H - PLAYER_RADIUS, p.y));
+
+        if (p.invincible > 0) p.invincible -= dt;
+
+        // Auto-aim
+        const ne = nearestEnemy(p.x, p.y);
+        if (ne) p.angle = Math.atan2(ne.y - p.y, ne.x - p.x);
+        else p.angle = 0;
+
+        // Shooting — Shift
+        if (p.shootCooldown > 0) p.shootCooldown -= dt;
+        if (keys['Shift']) shootFrom(p);
+      }
+
+      // Spawn enemies from right
+      if (enemiesRemaining > 0) {
+        spawnTimer -= dt;
+        if (spawnTimer <= 0) { spawnEnemy(); enemiesRemaining--; spawnTimer = Math.max(300, 1200 - wave*50); }
+      } else if (enemies.length === 0) {
+        nextWave();
+      }
+
+      // Bullets
+      for (let i=bullets.length-1; i>=0; i--) {
+        const b = bullets[i];
+        b.x += b.vx; b.y += b.vy; b.life -= dt;
+        if (b.life<=0||b.x<-20||b.x>W+20||b.y<-20||b.y>H+20) { bullets.splice(i,1); continue; }
+        for (let j=enemies.length-1; j>=0; j--) {
+          const e = enemies[j];
+          if (Math.hypot(b.x-e.x, b.y-e.y) < b.radius+e.radius) {
+            e.hp -= b.damage; e.flash = 80;
+            spawnParticles(b.x, b.y, b.crit?'#ffdd44':e.color, b.crit?8:4, 3);
+            if (e.hp<=0) {
+              if(upgradeLevels.explosive>0) explodeBullet(e.x,e.y);
+              onEnemyKilled(e); enemies.splice(j,1);
+            }
+            if (b.pierce>0) { b.pierce--; b.damage*=0.8; } else { bullets.splice(i,1); }
+            break;
+          }
+        }
+      }
+
+      // Enemies — move LEFT toward the wall
+      const alivePlayers = players.filter(p => p.alive);
+      const wallHitX = WALL_X + WALL_WIDTH;
+      for (let i = enemies.length - 1; i >= 0; i--) {
+        const e = enemies[i];
+
+        // Move left toward wall, slight vertical tracking toward nearest player
+        let targetY = e.y;
+        let closestP = null, closestD = Infinity;
+        for (const p of alivePlayers) {
+          const d = Math.hypot(e.x - p.x, e.y - p.y);
+          if (d < closestD) { closestD = d; closestP = p; }
+        }
+        if (closestP && closestD < 300) {
+          // Slight vertical pull toward player
+          const pullStrength = 0.3;
+          if (closestP.y > e.y + 3) e.y += e.speed * pullStrength;
+          else if (closestP.y < e.y - 3) e.y -= e.speed * pullStrength;
+        }
+
+        // Main movement: go left
+        e.x -= e.speed;
+        if (e.flash > 0) e.flash -= dt;
+
+        // Frost wall slow — enemies near wall move slower
+        if (upgradeLevels.wallSlow > 0) {
+          const slowRange = 150;
+          if (e.x - e.radius < wallHitX + slowRange) {
+            const slowFactor = 1 - upgradeLevels.wallSlow * 0.10;
+            e.x += e.speed * (1 - slowFactor); // undo part of the leftward move
+          }
+        }
+
+        // Hit the wall
+        if (e.x - e.radius <= wallHitX) {
+          const wallDmg = e.type==='tank'?30:e.type==='fast'?10:18;
+          const dmg = Math.round(wallDmg * wallArmorMult());
+          wall.hp -= dmg;
+          // Wall thorns — damage enemy on hit
+          if (upgradeLevels.wallThorns > 0) {
+            const thornsDmg = upgradeLevels.wallThorns * 2;
+            e.hp -= thornsDmg;
+            spawnParticles(wallHitX, e.y, '#ff6644', 4, 3);
+          }
+          screenShake = 10;
+          spawnParticles(wallHitX, e.y, '#53d769', 8, 4);
+          spawnParticles(e.x, e.y, e.color, 6, 3);
+          enemies.splice(i, 1);
+          if (wall.hp <= 0) {
+            wall.hp = 0;
+            spawnParticles(WALL_X + WALL_WIDTH/2, H/2, '#53d769', 40, 10);
+            spawnParticles(WALL_X + WALL_WIDTH/2, H/2, '#ff4444', 30, 8);
+            doGameOver('The wall was destroyed!');
+          }
+          updateUI();
+          continue;
+        }
+
+        // Hit players (if they collide while enemy passes through)
+        for (const p of alivePlayers) {
+          const dist = Math.hypot(e.x - p.x, e.y - p.y);
+          if (dist < e.radius + PLAYER_RADIUS && p.invincible <= 0) {
+            const baseDmg = e.type==='tank'?20:e.type==='fast'?8:12;
+            const dmg = Math.round(baseDmg * pArmorMult());
+            p.hp -= dmg; p.invincible = 300; screenShake = 8;
+            spawnParticles(p.x, p.y, '#ff4444', 8, 4);
+            if (p.hp <= 0) {
+              p.alive = false;
+              spawnParticles(p.x, p.y, '#ff4444', 30, 8);
+              // Respawn after 3s if wall alive
+              if (wall.hp > 0) {
+                const deadP = p;
+                setTimeout(() => {
+                  if (!gameOver) {
+                    deadP.alive = true;
+                    deadP.hp = Math.floor(deadP.maxHp * 0.5);
+                    deadP.y = H / 2;
+                    deadP.invincible = 1500;
+                    spawnParticles(deadP.x, deadP.y, deadP.color, 12, 4);
+                    updateUI();
+                  }
+                }, 3000);
+              }
+            }
+            updateUI();
+          }
+        }
+      }
+
+      // Pickups
+      const magnetRange = 50 + upgradeLevels.magnet * 60;
+      for (let i=pickups.length-1; i>=0; i--) {
+        const pk = pickups[i]; pk.life -= dt;
+        if (pk.life<=0) { pickups.splice(i,1); continue; }
+        for (const p of alivePlayers) {
+          const dist = Math.hypot(pk.x-p.x, pk.y-p.y);
+          if (dist < magnetRange && dist > 5) {
+            const a = Math.atan2(p.y-pk.y, p.x-pk.x);
+            const pull = 3+upgradeLevels.magnet*2;
+            pk.x += Math.cos(a)*pull; pk.y += Math.sin(a)*pull;
+          }
+          if (dist < 12+PLAYER_RADIUS) {
+            if (pk.type==='health') p.hp = Math.min(p.maxHp, p.hp+25);
+            spawnParticles(pk.x, pk.y, '#fff', 6, 3);
+            pickups.splice(i,1); updateUI(); break;
+          }
+        }
+      }
+
+      // Particles
+      for (let i=particles.length-1; i>=0; i--) {
+        const p=particles[i]; p.x+=p.vx; p.y+=p.vy; p.vx*=0.96; p.vy*=0.96; p.life-=dt;
+        if (p.life<=0) particles.splice(i,1);
+      }
+
+      // Shake
+      if (screenShake>0) {
+        shakeX=(Math.random()-0.5)*screenShake*2; shakeY=(Math.random()-0.5)*screenShake*2;
+        screenShake*=0.9; if(screenShake<0.3)screenShake=0;
+      } else { shakeX=0; shakeY=0; }
+    }
+
+    // DRAW
+    function drawWall() {
+      const healthPct = wall.hp / wall.maxHp;
+      const wallColor = healthPct > 0.5 ? '#53d769' : healthPct > 0.25 ? '#ff8800' : '#e94560';
+
+      // Wall glow
+      ctx.shadowColor = wallColor;
+      ctx.shadowBlur = 15 + Math.sin(Date.now()/400) * 5;
+
+      // Main wall body
+      ctx.fillStyle = wallColor;
+      ctx.fillRect(WALL_X, 0, WALL_WIDTH, H);
+      ctx.shadowBlur = 0;
+
+      // Brick pattern
+      const brickH = 30;
+      const brickW = WALL_WIDTH;
+      ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+      ctx.lineWidth = 1;
+      for (let row = 0; row < Math.ceil(H / brickH); row++) {
+        const y = row * brickH;
+        ctx.beginPath(); ctx.moveTo(WALL_X, y); ctx.lineTo(WALL_X + brickW, y); ctx.stroke();
+        // Offset every other row
+        if (row % 2 === 0) {
+          ctx.beginPath(); ctx.moveTo(WALL_X + brickW/2, y); ctx.lineTo(WALL_X + brickW/2, y + brickH); ctx.stroke();
+        }
+      }
+
+      // Inner highlight
+      ctx.fillStyle = 'rgba(255,255,255,0.08)';
+      ctx.fillRect(WALL_X + 2, 0, 4, H);
+
+      // Health bar along the wall (vertical bar on left side)
+      const barW = 6;
+      const barX = WALL_X - barW - 6;
+      ctx.fillStyle = '#222';
+      ctx.fillRect(barX, 20, barW, H - 40);
+      ctx.fillStyle = wallColor;
+      const barH = (H - 40) * healthPct;
+      ctx.fillRect(barX, 20 + (H - 40) - barH, barW, barH);
+
+      // HP text
+      ctx.fillStyle = '#fff';
+      ctx.font = 'bold 13px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.save();
+      ctx.translate(barX + barW/2, H/2);
+      ctx.rotate(-Math.PI/2);
+      ctx.fillText(`WALL: ${Math.ceil(wall.hp)} / ${wall.maxHp}`, 0, 0);
+      ctx.restore();
+    }
+
+    function drawPlayer(p) {
+      if (!p.alive) return;
+      const blink = p.invincible>0 && Math.floor(Date.now()/60)%2;
+      if (blink) return;
+
+      ctx.fillStyle = p.color;
+      ctx.shadowColor = p.color;
+      ctx.shadowBlur = 12;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, PLAYER_RADIUS, 0, Math.PI*2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Barrel — points toward aim angle
+      ctx.strokeStyle = '#aaa'; ctx.lineWidth = 5; ctx.lineCap = 'round';
+      ctx.beginPath();
+      ctx.moveTo(p.x+Math.cos(p.angle)*10, p.y+Math.sin(p.angle)*10);
+      ctx.lineTo(p.x+Math.cos(p.angle)*28, p.y+Math.sin(p.angle)*28);
+      ctx.stroke();
+
+      // Eye
+      ctx.fillStyle = '#fff';
+      const ex=p.x+Math.cos(p.angle)*6, ey=p.y+Math.sin(p.angle)*6;
+      ctx.beginPath(); ctx.arc(ex,ey,4,0,Math.PI*2); ctx.fill();
+      ctx.fillStyle = '#0d1117';
+      ctx.beginPath(); ctx.arc(ex+Math.cos(p.angle)*2,ey+Math.sin(p.angle)*2,2,0,Math.PI*2); ctx.fill();
+
+      // Label
+      const label = players.length > 1 ? `P${p.id}` : 'YOU';
+      ctx.fillStyle = p.color; ctx.globalAlpha = 0.7;
+      ctx.font = 'bold 11px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(label, p.x, p.y - PLAYER_RADIUS - 10);
+      ctx.globalAlpha = 1;
+    }
+
+    function draw() {
+      ctx.save();
+      ctx.translate(shakeX, shakeY);
+      ctx.fillStyle = '#0d1117';
+      ctx.fillRect(-10,-10,W+20,H+20);
+
+      // Grid
+      ctx.strokeStyle = 'rgba(255,255,255,0.03)'; ctx.lineWidth = 1;
+      for (let x=0;x<W;x+=50){ctx.beginPath();ctx.moveTo(x,0);ctx.lineTo(x,H);ctx.stroke();}
+      for (let y=0;y<H;y+=50){ctx.beginPath();ctx.moveTo(0,y);ctx.lineTo(W,y);ctx.stroke();}
+
+      // Player lane indicator (subtle vertical line)
+      const laneX = WALL_X + WALL_WIDTH + PLAYER_LANE_X_OFFSET;
+      ctx.strokeStyle = 'rgba(255,255,255,0.04)'; ctx.lineWidth = 2;
+      ctx.setLineDash([8, 8]);
+      ctx.beginPath(); ctx.moveTo(laneX, 0); ctx.lineTo(laneX, H); ctx.stroke();
+      ctx.setLineDash([]);
+
+      // Wall
+      drawWall();
+
+      // Turrets
+      const turretDrawX = WALL_X + WALL_WIDTH + 10;
+      for (const t of turrets) {
+        // Base
+        ctx.fillStyle = '#555';
+        ctx.beginPath(); ctx.arc(turretDrawX, t.y, 10, 0, Math.PI * 2); ctx.fill();
+        // Ring
+        ctx.strokeStyle = '#ff44ff'; ctx.lineWidth = 2;
+        ctx.beginPath(); ctx.arc(turretDrawX, t.y, 10, 0, Math.PI * 2); ctx.stroke();
+        // Barrel
+        ctx.strokeStyle = '#ff44ff'; ctx.lineWidth = 4; ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(turretDrawX + Math.cos(t.angle) * 6, t.y + Math.sin(t.angle) * 6);
+        ctx.lineTo(turretDrawX + Math.cos(t.angle) * 18, t.y + Math.sin(t.angle) * 18);
+        ctx.stroke();
+      }
+
+      // Turret bullets
+      for (const b of turretBullets) {
+        ctx.fillStyle = '#ff44ff'; ctx.shadowColor = '#ff44ff'; ctx.shadowBlur = 8;
+        ctx.beginPath(); ctx.arc(b.x, b.y, b.radius, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.shadowBlur = 0;
+
+      // Pickups
+      for (const p of pickups) {
+        const alpha = p.life<2000?(Math.sin(Date.now()/80)*0.3+0.7):1;
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle='#53d769'; ctx.shadowColor='#53d769'; ctx.shadowBlur=10;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();
+        ctx.shadowBlur=0; ctx.fillStyle='#fff'; ctx.font='bold 12px sans-serif';
+        ctx.textAlign='center'; ctx.textBaseline='middle'; ctx.fillText('+',p.x,p.y);
+        ctx.globalAlpha=1;
+      }
+
+      // Bullets
+      for (const b of bullets) {
+        ctx.fillStyle='#ffdd44'; ctx.shadowColor=b.crit?'#ffaa00':'#ffdd44'; ctx.shadowBlur=b.crit?14:8;
+        ctx.beginPath(); ctx.arc(b.x,b.y,b.radius,0,Math.PI*2); ctx.fill();
+        if(b.crit){ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.stroke();}
+      }
+      ctx.shadowBlur=0;
+
+      // Enemies
+      for (const e of enemies) {
+        ctx.fillStyle=e.flash>0?'#ffffff':e.color; ctx.shadowColor=e.color; ctx.shadowBlur=e.flash>0?15:6;
+        if(e.type==='tank'){
+          const r=e.radius;ctx.fillRect(e.x-r,e.y-r,r*2,r*2);
+        } else if(e.type==='fast'){
+          // Triangle pointing left (toward wall)
+          const a = Math.PI; // facing left
+          ctx.beginPath();
+          ctx.moveTo(e.x+Math.cos(a)*e.radius*1.3,e.y+Math.sin(a)*e.radius*1.3);
+          ctx.lineTo(e.x+Math.cos(a+2.3)*e.radius,e.y+Math.sin(a+2.3)*e.radius);
+          ctx.lineTo(e.x+Math.cos(a-2.3)*e.radius,e.y+Math.sin(a-2.3)*e.radius);
+          ctx.closePath(); ctx.fill();
+        } else {
+          ctx.beginPath(); ctx.arc(e.x,e.y,e.radius,0,Math.PI*2); ctx.fill();
+        }
+        ctx.shadowBlur=0;
+
+        // HP bar
+        if(e.hp<e.maxHp){
+          const bW=e.radius*2,bH=4;
+          ctx.fillStyle='#333';ctx.fillRect(e.x-bW/2,e.y-e.radius-10,bW,bH);
+          ctx.fillStyle=e.color;ctx.fillRect(e.x-bW/2,e.y-e.radius-10,bW*(e.hp/e.maxHp),bH);
+        }
+        // Coin value
+        ctx.fillStyle='#f0a500';ctx.globalAlpha=0.6;ctx.font='bold 9px sans-serif';
+        ctx.textAlign='center';ctx.textBaseline='middle';
+        ctx.fillText(`$${e.coinReward}`,e.x,e.y+e.radius+10);ctx.globalAlpha=1;
+      }
+
+      // Players
+      for (const p of players) drawPlayer(p);
+
+      // Magnet range
+      if (upgradeLevels.magnet>0) {
+        for (const p of players) {
+          if (!p.alive) continue;
+          ctx.strokeStyle='rgba(204,136,255,0.1)';ctx.lineWidth=1;
+          ctx.beginPath();ctx.arc(p.x,p.y,50+upgradeLevels.magnet*60,0,Math.PI*2);ctx.stroke();
+        }
+      }
+
+      // Particles
+      for (const p of particles) {
+        ctx.globalAlpha=Math.max(0,p.life/p.maxLife); ctx.fillStyle=p.color;
+        ctx.beginPath(); ctx.arc(p.x,p.y,p.radius,0,Math.PI*2); ctx.fill();
+      }
+      ctx.globalAlpha=1;
+
+      // Pause dim
+      if (paused) {
+        ctx.fillStyle='rgba(0,0,0,0.3)';ctx.fillRect(-10,-10,W+20,H+20);
+      }
+
+      ctx.restore();
+    }
+
+    // Game loop
+    function gameLoop(timestamp) {
+      if(!lastTimestamp) lastTimestamp=timestamp;
+      let dt=timestamp-lastTimestamp; lastTimestamp=timestamp;
+      if(dt>50)dt=50;
+      if(gameStarted){
+        update(dt); draw();
+        if(gameOver&&(keys[' ']||keys['enter'])){keys[' ']=false;keys['enter']=false;init();}
+      }
+      requestAnimationFrame(gameLoop);
+    }
+
+    // Key bindings
+    document.addEventListener('keydown', e => {
+      const k = e.key.toLowerCase();
+      if (k==='p' && gameStarted && !gameOver && !shopOpen && !wallShopOpen) togglePause();
+      if (k==='b' && gameStarted && !gameOver && !paused && !wallShopOpen) { if(shopOpen)closeShop(); else openShop(); }
+      if (k==='n' && gameStarted && !gameOver && !paused && !shopOpen) { if(wallShopOpen)closeWallShop(); else openWallShop(); }
+      if (k==='m' && gameStarted && !gameOver && !paused && !shopOpen && !wallShopOpen) toggleMultiplayer();
+      if (e.key==='Escape') { if(shopOpen)closeShop(); else if(wallShopOpen)closeWallShop(); else if(paused)togglePause(); }
+    });
+
+    // Start
+    gameStarted = false;
+    multiplayerMode = false;
+    document.getElementById('start-btn').addEventListener('click', () => {
+      gameStarted = true;
+      startOverlay.classList.add('hidden');
+      init();
+    });
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>

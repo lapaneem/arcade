@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0a1a">
+  <title>Game Arcade</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+    body {
+      background: #0a0a1a;
+      min-height: 100vh;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      color: #fff;
+      overflow-x: hidden;
+    }
+
+    /* Animated background */
+    .bg-glow {
+      position: fixed;
+      top: -50%;
+      left: -50%;
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(circle at 30% 40%, rgba(233,69,96,0.08) 0%, transparent 50%),
+                  radial-gradient(circle at 70% 60%, rgba(79,195,247,0.08) 0%, transparent 50%),
+                  radial-gradient(circle at 50% 80%, rgba(240,165,0,0.06) 0%, transparent 50%);
+      animation: bgFloat 20s ease-in-out infinite;
+      pointer-events: none;
+      z-index: 0;
+    }
+    @keyframes bgFloat {
+      0%, 100% { transform: translate(0, 0); }
+      33% { transform: translate(-2%, 1%); }
+      66% { transform: translate(2%, -1%); }
+    }
+
+    /* Header */
+    header {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 50px 20px 30px;
+    }
+    header h1 {
+      font-size: 42px;
+      font-weight: 800;
+      background: linear-gradient(135deg, #e94560, #f0a500, #4fc3f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      background-clip: text;
+      letter-spacing: -1px;
+    }
+    header p {
+      color: #666;
+      font-size: 16px;
+      margin-top: 8px;
+    }
+    .game-count {
+      display: inline-block;
+      margin-top: 12px;
+      padding: 4px 14px;
+      background: rgba(255,255,255,0.06);
+      border-radius: 20px;
+      font-size: 13px;
+      color: #888;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+
+    /* Games grid */
+    .games-grid {
+      position: relative;
+      z-index: 1;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+      gap: 20px;
+      padding: 20px 24px 40px;
+      max-width: 700px;
+      margin: 0 auto;
+    }
+
+    /* Game card */
+    .game-card {
+      background: rgba(22, 33, 62, 0.6);
+      border: 1px solid rgba(255,255,255,0.06);
+      border-radius: 20px;
+      padding: 24px 16px 20px;
+      text-align: center;
+      text-decoration: none;
+      color: #fff;
+      transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      -webkit-backdrop-filter: blur(10px);
+      backdrop-filter: blur(10px);
+      cursor: pointer;
+      position: relative;
+      overflow: hidden;
+    }
+    .game-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 3px;
+      background: var(--accent);
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+    .game-card:hover, .game-card:active {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 12px 40px rgba(0,0,0,0.3), 0 0 30px var(--glow);
+      border-color: var(--accent);
+    }
+    .game-card:hover::before, .game-card:active::before {
+      opacity: 1;
+    }
+
+    /* App icon */
+    .app-icon {
+      width: 72px;
+      height: 72px;
+      border-radius: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 36px;
+      background: var(--icon-bg);
+      box-shadow: 0 4px 15px var(--glow);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .app-icon::after {
+      content: '';
+      position: absolute;
+      inset: 0;
+      border-radius: 18px;
+      background: linear-gradient(135deg, rgba(255,255,255,0.15) 0%, transparent 50%);
+    }
+
+    .game-card .title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: -0.3px;
+    }
+    .game-card .desc {
+      font-size: 12px;
+      color: #888;
+      line-height: 1.4;
+    }
+    .game-card .tags {
+      display: flex;
+      gap: 6px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+    .tag {
+      padding: 3px 10px;
+      border-radius: 12px;
+      font-size: 10px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      background: rgba(255,255,255,0.05);
+      color: #aaa;
+      border: 1px solid rgba(255,255,255,0.05);
+    }
+    .tag.new {
+      background: rgba(83,215,105,0.15);
+      color: #53d769;
+      border-color: rgba(83,215,105,0.2);
+    }
+
+    /* Play button hint */
+    .play-hint {
+      margin-top: 4px;
+      padding: 6px 20px;
+      border-radius: 14px;
+      font-size: 13px;
+      font-weight: 600;
+      background: var(--accent);
+      color: #000;
+      opacity: 0;
+      transform: translateY(4px);
+      transition: opacity 0.2s, transform 0.2s;
+    }
+    .game-card:hover .play-hint,
+    .game-card:active .play-hint {
+      opacity: 1;
+      transform: translateY(0);
+    }
+
+    /* Footer */
+    footer {
+      position: relative;
+      z-index: 1;
+      text-align: center;
+      padding: 20px;
+      color: #333;
+      font-size: 13px;
+      border-top: 1px solid rgba(255,255,255,0.04);
+      max-width: 700px;
+      margin: 20px auto 0;
+    }
+
+    /* Mobile */
+    @media (max-width: 500px) {
+      header { padding: 40px 16px 20px; }
+      header h1 { font-size: 32px; }
+      header p { font-size: 14px; }
+      .games-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 14px;
+        padding: 16px 16px 32px;
+      }
+      .game-card { padding: 20px 12px 16px; border-radius: 16px; }
+      .app-icon { width: 60px; height: 60px; font-size: 30px; border-radius: 15px; }
+      .game-card .title { font-size: 14px; }
+      .game-card .desc { font-size: 11px; }
+      .play-hint { opacity: 1; transform: translateY(0); font-size: 12px; padding: 5px 16px; }
+    }
+
+    /* Tiny phones */
+    @media (max-width: 360px) {
+      .games-grid { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 12px 28px; }
+      .game-card { padding: 16px 8px 14px; gap: 8px; }
+      .app-icon { width: 52px; height: 52px; font-size: 26px; }
+    }
+
+    /* Touch feedback */
+    @media (hover: none) {
+      .game-card:active {
+        transform: scale(0.97);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.2);
+      }
+    }
+
+    /* Dark notch safe areas */
+    @supports (padding-top: env(safe-area-inset-top)) {
+      header { padding-top: calc(40px + env(safe-area-inset-top)); }
+      .games-grid { padding-bottom: calc(32px + env(safe-area-inset-bottom)); }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <header>
+    <h1>Game Arcade</h1>
+    <p>Tap a game to play</p>
+    <div class="game-count" id="game-count"></div>
+  </header>
+
+  <div class="games-grid" id="games-grid"></div>
+
+  <footer>
+    Game Arcade
+  </footer>
+
+  <script>
+    const GAMES = [
+      {
+        title: 'Snake',
+        desc: 'Classic snake — eat, grow, survive',
+        icon: '🐍',
+        url: 'snake/index.html',
+        accent: '#53d769',
+        glow: 'rgba(83,215,105,0.2)',
+        iconBg: 'linear-gradient(135deg, #1b5e20, #2e7d32)',
+        tags: ['Classic', 'Solo'],
+      },
+      {
+        title: 'Wall Defense',
+        desc: 'Protect the wall — shoot, upgrade, survive',
+        icon: '🏰',
+        url: 'shooter/index.html',
+        accent: '#53d769',
+        glow: 'rgba(83,215,105,0.2)',
+        iconBg: 'linear-gradient(135deg, #1a5c2e, #2e7d32)',
+        tags: ['Defense', '1-2P', 'New'],
+      },
+    ];
+
+    const grid = document.getElementById('games-grid');
+    const countEl = document.getElementById('game-count');
+    countEl.textContent = `${GAMES.length} game${GAMES.length !== 1 ? 's' : ''} available`;
+
+    GAMES.forEach(game => {
+      const card = document.createElement('a');
+      card.className = 'game-card';
+      card.href = game.url;
+      card.style.setProperty('--accent', game.accent);
+      card.style.setProperty('--glow', game.glow);
+      card.style.setProperty('--icon-bg', game.iconBg);
+
+      const tagsHTML = game.tags.map(t =>
+        `<span class="tag ${t.toLowerCase() === 'new' ? 'new' : ''}">${t}</span>`
+      ).join('');
+
+      card.innerHTML = `
+        <div class="app-icon">${game.icon}</div>
+        <div class="title">${game.title}</div>
+        <div class="desc">${game.desc}</div>
+        <div class="tags">${tagsHTML}</div>
+        <div class="play-hint">PLAY</div>
+      `;
+
+      grid.appendChild(card);
+    });
+  </script>
+</body>
+</html>
