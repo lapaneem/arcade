@@ -222,6 +222,7 @@
     let gameStarted, playing, particles, floatingTexts;
     let actPressed, streak, mustClear;
     let shakeDx, shakeDy, shakeTimer;
+    let controlsPromptTimer; // shows which keys to use after possession change
 
     function makePlayer(x, y, id) {
       return {
@@ -243,6 +244,7 @@
       playing = true;
       mustClear = false;
       shakeDx = 0; shakeDy = 0; shakeTimer = 0;
+      controlsPromptTimer = 3000;
 
       players = [
         makePlayer(COURT_W * 0.3, COURT_H * 0.5, 1),
@@ -291,6 +293,7 @@
       ball.vy = 0;
       possession = pid;
       mustClear = false;
+      controlsPromptTimer = 3000;
       updateHudInfo();
     }
 
@@ -496,6 +499,7 @@
         shakeTimer -= dt;
         if (shakeTimer <= 0) { shakeDx = 0; shakeDy = 0; }
       }
+      if (controlsPromptTimer > 0) controlsPromptTimer -= dt;
 
       // Read inputs (always, so actPressed stays in sync during pauses)
       const inputs = {};
@@ -743,7 +747,46 @@
       }
       ctx.globalAlpha = 1;
 
+      // Pulsing arrow above ball carrier
+      if (ball.state === 'held' && ball.holder) {
+        const bh = ball.holder;
+        const pulse = Math.sin(Date.now() * 0.006) * 3;
+        const arrowY = bh.y - PLAYER_R - 20 + pulse;
+        ctx.fillStyle = P_COLORS[bh.id - 1];
+        ctx.globalAlpha = 0.8;
+        ctx.beginPath();
+        ctx.moveTo(bh.x, arrowY + 6);
+        ctx.lineTo(bh.x - 5, arrowY);
+        ctx.lineTo(bh.x + 5, arrowY);
+        ctx.closePath();
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
       ctx.restore();
+
+      // Controls prompt (in screen space, after ctx.restore)
+      if (controlsPromptTimer > 0 && ball.holder) {
+        const alpha = Math.min(1, controlsPromptTimer / 500);
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = 'rgba(0,0,0,0.6)';
+        const promptY = courtY + COURT_H * courtScale + 20;
+        const promptW = 300;
+        const promptH = 40;
+        const promptX = W / 2 - promptW / 2;
+        ctx.fillRect(promptX, promptY, promptW, promptH);
+        ctx.strokeStyle = P_COLORS[possession - 1];
+        ctx.lineWidth = 2;
+        ctx.strokeRect(promptX, promptY, promptW, promptH);
+
+        ctx.fillStyle = P_COLORS[possession - 1];
+        ctx.font = 'bold 16px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        const keys = possession === 1 ? 'WASD + Space' : 'Arrows + Enter';
+        ctx.fillText(`P${possession}'s ball \u2014 ${keys}`, W / 2, promptY + promptH / 2);
+        ctx.globalAlpha = 1;
+      }
     }
 
     function drawCourt() {
