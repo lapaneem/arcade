@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Football</title>
+  <script src="https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js"></script>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
     body { background: #0a0a0a; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
@@ -19,12 +20,33 @@
     #start-overlay h1 { font-size: 48px; margin-bottom: 6px; color: #8b4513; }
     #start-overlay .sub { font-size: 22px; color: #f0a500; margin-bottom: 16px; }
     #start-overlay p { font-size: 15px; color: #aaa; margin-bottom: 4px; }
-    .start-btn {
-      margin-top: 20px; padding: 16px 46px; font-size: 24px; font-weight: bold;
+
+    .lobby-btn {
+      margin: 6px; padding: 14px 36px; font-size: 20px; font-weight: bold;
       border: 3px solid #8b4513; border-radius: 12px; cursor: pointer; color: #fff;
       background: rgba(22,33,62,0.9); transition: all 0.15s;
     }
-    .start-btn:hover { border-color: #f0a500; box-shadow: 0 0 25px rgba(240,165,0,0.3); }
+    .lobby-btn:hover { border-color: #f0a500; box-shadow: 0 0 25px rgba(240,165,0,0.3); }
+    .lobby-btn:disabled { opacity: 0.4; cursor: default; border-color: #444; box-shadow: none; }
+    .btn-row { display: flex; flex-wrap: wrap; justify-content: center; margin-top: 16px; }
+
+    #lobby-host, #lobby-join { display: none; text-align: center; margin-top: 16px; }
+    .room-code {
+      font-size: 36px; font-weight: bold; letter-spacing: 8px; color: #f0a500;
+      background: rgba(255,255,255,0.05); padding: 10px 24px; border-radius: 10px;
+      display: inline-block; margin: 10px 0; font-family: monospace;
+    }
+    .lobby-status { color: #aaa; font-size: 15px; margin-top: 8px; }
+    .lobby-status.error { color: #e94560; }
+    #join-input {
+      font-size: 24px; letter-spacing: 6px; text-align: center; width: 200px;
+      padding: 10px 16px; border: 2px solid #8b4513; border-radius: 10px;
+      background: rgba(255,255,255,0.05); color: #f0a500; font-family: monospace;
+      text-transform: uppercase; outline: none;
+    }
+    #join-input:focus { border-color: #f0a500; }
+    #join-input::placeholder { color: #555; letter-spacing: 2px; font-size: 16px; }
+
     .controls-info { margin-top: 18px; color: #555; font-size: 13px; line-height: 1.8; text-align: center; }
 
     #msg-overlay {
@@ -45,16 +67,14 @@
     #hud.hidden { display: none; }
     .h-p1 { color: #4fc3f7; }
     .h-p2 { color: #ff8800; }
+    .h-p3 { color: #66bb6a; }
     .h-sep { color: #444; }
     #hud-info { font-size: 14px; color: #aaa; }
 
     /* Touch controls */
-    #touch-p1, #touch-p2 { display: none; position: fixed; z-index: 60; pointer-events: none; }
-    @media (hover: none) and (pointer: coarse) { #touch-p1, #touch-p2 { display: block; } }
-    #touch-p1 { bottom: 8px; left: 8px; }
-    #touch-p2 { bottom: 8px; right: 8px; }
+    #touch-controls { display: none; position: fixed; z-index: 60; pointer-events: none; bottom: 8px; left: 8px; }
+    @media (hover: none) and (pointer: coarse) { #touch-controls { display: block; } }
     .tc { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
-    .tc.rs { flex-direction: row-reverse; }
     .tdp { display: grid; grid-template-columns: 44px 44px 44px; grid-template-rows: 44px 44px 44px; gap: 3px; }
     .td {
       width: 44px; height: 44px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
@@ -64,8 +84,6 @@
     }
     .td:active { background: rgba(255,255,255,0.3); }
     .td.empty { background: none; border: none; pointer-events: none; }
-    #touch-p1 .td { border-color: rgba(79,195,247,0.3); }
-    #touch-p2 .td { border-color: rgba(255,136,0,0.3); }
     .tact {
       width: 64px; height: 64px; border-radius: 50%;
       background: rgba(139,69,19,0.3); border: 3px solid rgba(139,69,19,0.6);
@@ -74,7 +92,16 @@
       user-select: none; -webkit-user-select: none; pointer-events: auto;
     }
     .tact:active { background: rgba(139,69,19,0.55); }
-    #touch-p2 .tact { background: rgba(255,136,0,0.2); border-color: rgba(255,136,0,0.5); }
+
+    /* Local 2-player touch */
+    #touch-p1-local, #touch-p2-local { display: none; position: fixed; z-index: 60; pointer-events: none; }
+    @media (hover: none) and (pointer: coarse) { #touch-p1-local, #touch-p2-local { display: block; } }
+    #touch-p1-local { bottom: 8px; left: 8px; }
+    #touch-p2-local { bottom: 8px; right: 8px; }
+    #touch-p2-local .tc { flex-direction: row-reverse; }
+    #touch-p1-local .td { border-color: rgba(79,195,247,0.3); }
+    #touch-p2-local .td { border-color: rgba(255,136,0,0.3); }
+    #touch-p2-local .tact { background: rgba(255,136,0,0.2); border-color: rgba(255,136,0,0.5); }
   </style>
 </head>
 <body>
@@ -85,6 +112,8 @@
     <span class="h-sep">|</span>
     <span class="h-p2" id="hp2">P2: 0</span>
     <span class="h-sep">|</span>
+    <span class="h-p3" id="hp3" style="display:none">P3: 0</span>
+    <span class="h-sep" id="sep3" style="display:none">|</span>
     <span id="hud-info">1st Down</span>
   </div>
 
@@ -95,20 +124,53 @@
 
   <div id="start-overlay">
     <h1>🏈 Football</h1>
-    <div class="sub">2 Player VS</div>
+    <div class="sub">American Football</div>
     <p>Offense runs the ball to the end zone!</p>
     <p>Defense tries to tackle!</p>
-    <p style="color:#f0a500;margin-top:8px;">4 drives each — most points wins!</p>
-    <button class="start-btn" id="start-btn">KICK OFF</button>
-    <div class="controls-info">
-      P1 (Blue): <b>WASD</b> move &bull; <b>Space</b> throw/sprint<br>
-      P2 (Orange): <b>Arrows</b> move &bull; <b>Enter</b> sprint/dive<br>
-      Offense: press action to <b>throw</b> the ball forward!<br>
-      Defense: press action near carrier to <b>dive tackle</b>!
+
+    <div id="lobby-mode-select">
+      <div class="btn-row">
+        <button class="lobby-btn" id="btn-local">PLAY LOCAL (2P)</button>
+        <button class="lobby-btn" id="btn-create">CREATE GAME</button>
+        <button class="lobby-btn" id="btn-join">JOIN GAME</button>
+      </div>
+      <div class="controls-info">
+        Local: P1 <b>WASD</b> + <b>Space</b> &bull; P2 <b>Arrows</b> + <b>Enter</b><br>
+        Online: Any keys or touch — you control your own player
+      </div>
+    </div>
+
+    <div id="lobby-host">
+      <p style="color:#f0a500;font-size:18px;">Room Code:</p>
+      <div class="room-code" id="host-code">-----</div>
+      <div class="lobby-status" id="host-status">Creating room...</div>
+      <button class="lobby-btn" id="btn-host-back" style="margin-top:14px;font-size:14px;padding:8px 20px;">Back</button>
+    </div>
+
+    <div id="lobby-join">
+      <p style="color:#aaa;margin-bottom:10px;">Enter room code:</p>
+      <input type="text" id="join-input" maxlength="5" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false">
+      <br>
+      <button class="lobby-btn" id="btn-join-go" style="margin-top:12px;">JOIN</button>
+      <div class="lobby-status" id="join-status"></div>
+      <button class="lobby-btn" id="btn-join-back" style="margin-top:10px;font-size:14px;padding:8px 20px;">Back</button>
     </div>
   </div>
 
-  <div id="touch-p1">
+  <!-- Online touch controls (single set) -->
+  <div id="touch-controls">
+    <div class="tc">
+      <div class="tdp">
+        <div class="td empty"></div><div class="td" data-k="up">&#9650;</div><div class="td empty"></div>
+        <div class="td" data-k="left">&#9664;</div><div class="td empty"></div><div class="td" data-k="right">&#9654;</div>
+        <div class="td empty"></div><div class="td" data-k="down">&#9660;</div><div class="td empty"></div>
+      </div>
+      <div class="tact" data-k="act">ACT</div>
+    </div>
+  </div>
+
+  <!-- Local 2P touch controls -->
+  <div id="touch-p1-local">
     <div class="tc">
       <div class="tdp">
         <div class="td empty"></div><div class="td" data-p="1" data-k="up">&#9650;</div><div class="td empty"></div>
@@ -118,8 +180,8 @@
       <div class="tact" data-p="1" data-k="act">ACT</div>
     </div>
   </div>
-  <div id="touch-p2">
-    <div class="tc rs">
+  <div id="touch-p2-local">
+    <div class="tc">
       <div class="tdp">
         <div class="td empty"></div><div class="td" data-p="2" data-k="up">&#9650;</div><div class="td empty"></div>
         <div class="td" data-p="2" data-k="left">&#9664;</div><div class="td empty"></div><div class="td" data-p="2" data-k="right">&#9654;</div>
@@ -139,6 +201,8 @@
     const hud = document.getElementById('hud');
     const hp1 = document.getElementById('hp1');
     const hp2 = document.getElementById('hp2');
+    const hp3 = document.getElementById('hp3');
+    const sep3 = document.getElementById('sep3');
     const hudInfo = document.getElementById('hud-info');
 
     let W, H;
@@ -146,6 +210,7 @@
     window.addEventListener('resize', resize);
     resize();
 
+    // ─── Input ───
     const keys = {};
     document.addEventListener('keydown', e => {
       keys[e.key] = true;
@@ -153,15 +218,25 @@
     });
     document.addEventListener('keyup', e => { keys[e.key] = false; });
 
-    const touch = { 1: {}, 2: {} };
+    // Local 2P touch
+    const touchLocal = { 1: {}, 2: {} };
     document.querySelectorAll('[data-p]').forEach(el => {
       const p = el.dataset.p, k = el.dataset.k;
-      el.addEventListener('touchstart', e => { e.preventDefault(); touch[p][k] = true; }, { passive: false });
-      el.addEventListener('touchend', e => { e.preventDefault(); touch[p][k] = false; }, { passive: false });
-      el.addEventListener('touchcancel', () => { touch[p][k] = false; });
+      el.addEventListener('touchstart', e => { e.preventDefault(); touchLocal[p][k] = true; }, { passive: false });
+      el.addEventListener('touchend', e => { e.preventDefault(); touchLocal[p][k] = false; }, { passive: false });
+      el.addEventListener('touchcancel', () => { touchLocal[p][k] = false; });
     });
 
-    // Field
+    // Online single-player touch
+    const touchOnline = {};
+    document.querySelectorAll('#touch-controls [data-k]').forEach(el => {
+      const k = el.dataset.k;
+      el.addEventListener('touchstart', e => { e.preventDefault(); touchOnline[k] = true; }, { passive: false });
+      el.addEventListener('touchend', e => { e.preventDefault(); touchOnline[k] = false; }, { passive: false });
+      el.addEventListener('touchcancel', () => { touchOnline[k] = false; });
+    });
+
+    // ─── Field Constants ───
     const FIELD_YARDS = 100;
     const ENDZONE_W = 40;
     const PLAYER_R = 14;
@@ -170,7 +245,9 @@
     const TACKLE_RANGE = 30;
     const DIVE_RANGE = 50;
     const BALL_R = 6;
-    const TOTAL_DRIVES = 8; // 4 each
+
+    const PLAYER_COLORS = ['#4fc3f7', '#ff8800', '#66bb6a'];
+    const PLAYER_INNER  = ['#3aa0d0', '#cc6600', '#438a46'];
 
     let fieldX, fieldY, fieldW, fieldH, yardW;
     function calcField() {
@@ -184,11 +261,21 @@
     function yardToX(yard) { return fieldX + ENDZONE_W + yard * yardW; }
     function xToYard(x) { return (x - fieldX - ENDZONE_W) / yardW; }
 
-    let p1Score, p2Score, driveNum, offense; // offense: 1 or 2
+    // ─── Networking ───
+    let netMode = 'local'; // 'local' | 'host' | 'guest'
+    let peer = null;
+    let conns = [];
+    let remoteInputs = {}; // { playerId: {up,down,left,right,act} }
+    let myPlayerId = 1;
+    let numPlayers = 2; // 2 for local, 3 for online
+    let TOTAL_DRIVES = 8;
+
+    // ─── Game State ───
+    let scores, driveNum, offense;
     let players, ballCarrier, ball, thrownBall;
     let lineOfScrimmage, down, yardsToGo, firstDownLine;
     let gameStarted, playing, pauseTimer, particles;
-    let actPressed1, actPressed2; // to prevent hold-spam
+    let actPressedState; // per-player act tracking
 
     function makePlayer(x, y, color, id) {
       return { x, y, color, id, vx: 0, vy: 0, diving: false, diveTimer: 0 };
@@ -208,45 +295,69 @@
       const cy = fieldY + fieldH / 2;
       thrownBall = null;
 
-      if (offense === 1) {
-        players = [
-          makePlayer(losX - 10, cy, '#4fc3f7', 1),
-          makePlayer(losX + 40, cy, '#ff8800', 2),
-        ];
-        ballCarrier = players[0];
+      if (numPlayers === 2) {
+        // 2-player local mode
+        if (offense === 1) {
+          players = [
+            makePlayer(losX - 10, cy, PLAYER_COLORS[0], 1),
+            makePlayer(losX + 40, cy, PLAYER_COLORS[1], 2),
+          ];
+          ballCarrier = players[0];
+        } else {
+          players = [
+            makePlayer(losX + 40, cy, PLAYER_COLORS[0], 1),
+            makePlayer(losX - 10, cy, PLAYER_COLORS[1], 2),
+          ];
+          ballCarrier = players[1];
+        }
       } else {
-        players = [
-          makePlayer(losX + 40, cy, '#4fc3f7', 1),
-          makePlayer(losX - 10, cy, '#ff8800', 2),
-        ];
-        ballCarrier = players[1];
+        // 3-player online mode
+        players = [];
+        const offIdx = offense - 1;
+        // Offense player at snap position
+        players.push(makePlayer(losX - 10, cy, PLAYER_COLORS[offIdx], offense));
+        // Defenders spread out
+        const defIds = [1,2,3].filter(id => id !== offense);
+        const defSpread = fieldH * 0.3;
+        players.push(makePlayer(losX + 40, cy - defSpread/2, PLAYER_COLORS[defIds[0]-1], defIds[0]));
+        players.push(makePlayer(losX + 40, cy + defSpread/2, PLAYER_COLORS[defIds[1]-1], defIds[1]));
+        ballCarrier = players[0]; // offense player is always first in array for setup
       }
+
       ball = { x: ballCarrier.x, y: ballCarrier.y };
       updateHUD();
     }
 
     function init() {
       calcField();
-      p1Score = 0; p2Score = 0;
+      scores = numPlayers === 2 ? [0, 0] : [0, 0, 0];
       driveNum = 1;
       offense = 1;
       playing = true;
       pauseTimer = 0;
       particles = [];
-      actPressed1 = false; actPressed2 = false;
+      actPressedState = {};
       setupDrive();
       updateScoreUI();
     }
 
     function updateScoreUI() {
-      hp1.textContent = `P1: ${p1Score}`;
-      hp2.textContent = `P2: ${p2Score}`;
+      hp1.textContent = `P1: ${scores[0]}`;
+      hp2.textContent = `P2: ${scores[1]}`;
+      if (numPlayers === 3) {
+        hp3.textContent = `P3: ${scores[2]}`;
+        hp3.style.display = '';
+        sep3.style.display = '';
+      } else {
+        hp3.style.display = 'none';
+        sep3.style.display = 'none';
+      }
     }
 
     function updateHUD() {
       const downNames = ['', '1st', '2nd', '3rd', '4th'];
-      const offLabel = offense === 1 ? 'P1' : 'P2';
-      const offColor = offense === 1 ? '#4fc3f7' : '#ff8800';
+      const offLabel = `P${offense}`;
+      const offColor = PLAYER_COLORS[offense - 1];
       hudInfo.innerHTML = `<span style="color:${offColor}">${offLabel} ball</span> &bull; ${downNames[down]} & ${Math.round(yardsToGo)}`;
     }
 
@@ -264,6 +375,10 @@
       msgSub.textContent = sub;
       playing = false;
       pauseTimer = duration;
+      // If host, broadcast message to guests
+      if (netMode === 'host') {
+        broadcast({ type: 'msg', title, sub, duration });
+      }
       setTimeout(() => {
         msgOverlay.classList.add('hidden');
         if (callback) callback();
@@ -271,12 +386,19 @@
       }, duration);
     }
 
+    function showMessageLocal(title, sub, duration) {
+      // Used by guests to show messages without callbacks
+      msgOverlay.classList.remove('hidden');
+      msgTitle.innerHTML = title;
+      msgSub.textContent = sub;
+      setTimeout(() => { msgOverlay.classList.add('hidden'); }, duration);
+    }
+
     function handleTouchdown() {
-      if (offense === 1) p1Score += 7;
-      else p2Score += 7;
+      scores[offense - 1] += 7;
       updateScoreUI();
-      const scorer = offense === 1 ? 'P1' : 'P2';
-      const color = offense === 1 ? '#4fc3f7' : '#ff8800';
+      const scorer = `P${offense}`;
+      const color = PLAYER_COLORS[offense - 1];
       spawnParticles(ballCarrier.x, ballCarrier.y, '#f0a500', 30, 8);
       spawnParticles(ballCarrier.x, ballCarrier.y, color, 20, 6);
       showMessage(`<span style="color:#f0a500">TOUCHDOWN!</span>`, `${scorer} scores! +7 points`, 2000, () => {
@@ -288,7 +410,6 @@
       spawnParticles(ballCarrier.x, ballCarrier.y, '#ff4444', 15, 5);
       const newYard = xToYard(ballCarrier.x);
 
-      // Check first down
       if (newYard >= firstDownLine) {
         lineOfScrimmage = newYard;
         down = 1;
@@ -303,7 +424,6 @@
       lineOfScrimmage = newYard;
 
       if (down > 4) {
-        // Turnover on downs
         showMessage('<span style="color:#e94560">TURNOVER ON DOWNS!</span>', '', 1500, () => { nextDrive(); });
         return;
       }
@@ -311,11 +431,10 @@
       showMessage(`<span style="color:#aaa">TACKLED</span>`, `${['','1st','2nd','3rd','4th'][down]} & ${Math.round(yardsToGo)}`, 1200, () => { setupPlay(); });
     }
 
-    function handleInterception() {
-      const def = offense === 1 ? 'P2' : 'P1';
-      const color = offense === 1 ? '#ff8800' : '#4fc3f7';
+    function handleInterception(catcherId) {
+      const color = PLAYER_COLORS[catcherId - 1];
       spawnParticles(thrownBall.x, thrownBall.y, color, 20, 6);
-      showMessage(`<span style="color:${color}">INTERCEPTION!</span>`, `${def} picks it off!`, 1800, () => { nextDrive(); });
+      showMessage(`<span style="color:${color}">INTERCEPTION!</span>`, `P${catcherId} picks it off!`, 1800, () => { nextDrive(); });
     }
 
     function handleIncomplete() {
@@ -328,28 +447,77 @@
       showMessage('<span style="color:#aaa">INCOMPLETE</span>', `${['','1st','2nd','3rd','4th'][down]} & ${Math.round(yardsToGo)}`, 1000, () => { setupPlay(); });
     }
 
+    function handleSafety() {
+      // In 3P, defenders share the safety points... just give 2 to each defender? No — give 1 each for 3P, or 2 for 2P.
+      if (numPlayers === 2) {
+        const defId = offense === 1 ? 2 : 1;
+        scores[defId - 1] += 2;
+      } else {
+        // Each defender gets 1 point (2 total distributed)
+        for (let i = 1; i <= 3; i++) {
+          if (i !== offense) scores[i - 1] += 1;
+        }
+      }
+      updateScoreUI();
+      const defColor = numPlayers === 2
+        ? PLAYER_COLORS[offense === 1 ? 1 : 0]
+        : '#aaa';
+      spawnParticles(ballCarrier.x, ballCarrier.y, defColor, 20, 6);
+      showMessage(`<span style="color:${defColor}">SAFETY!</span>`, `Defense gets 2 points!`, 1800, () => { nextDrive(); });
+    }
+
     function nextDrive() {
       driveNum++;
       if (driveNum > TOTAL_DRIVES) {
         gameOver();
         return;
       }
-      offense = offense === 1 ? 2 : 1;
+      if (numPlayers === 2) {
+        offense = offense === 1 ? 2 : 1;
+      } else {
+        offense = (offense % 3) + 1; // 1→2→3→1
+      }
       setupDrive();
     }
 
     function gameOver() {
-      const winner = p1Score > p2Score ? 'P1 WINS!' : p2Score > p1Score ? 'P2 WINS!' : 'TIE GAME!';
-      const wColor = p1Score > p2Score ? '#4fc3f7' : p2Score > p1Score ? '#ff8800' : '#aaa';
+      let winner, wColor;
+      if (numPlayers === 2) {
+        winner = scores[0] > scores[1] ? 'P1 WINS!' : scores[1] > scores[0] ? 'P2 WINS!' : 'TIE GAME!';
+        wColor = scores[0] > scores[1] ? PLAYER_COLORS[0] : scores[1] > scores[0] ? PLAYER_COLORS[1] : '#aaa';
+        const subText = `${scores[0]} - ${scores[1]}`;
+        finishGame(winner, wColor, subText);
+      } else {
+        const maxScore = Math.max(...scores);
+        const winners = scores.reduce((acc, s, i) => s === maxScore ? [...acc, i+1] : acc, []);
+        if (winners.length === 1) {
+          winner = `P${winners[0]} WINS!`;
+          wColor = PLAYER_COLORS[winners[0]-1];
+        } else {
+          winner = 'TIE GAME!';
+          wColor = '#aaa';
+        }
+        const subText = `P1: ${scores[0]}  P2: ${scores[1]}  P3: ${scores[2]}`;
+        finishGame(winner, wColor, subText);
+      }
+    }
+
+    function finishGame(winner, wColor, subText) {
+      if (netMode === 'host') {
+        broadcast({ type: 'msg', title: `<span style="color:${wColor}">${winner}</span>`, sub: subText + ' \u2022 Tap to play again', duration: 99999 });
+      }
       msgOverlay.classList.remove('hidden');
       msgTitle.innerHTML = `<span style="color:${wColor}">${winner}</span>`;
-      msgSub.textContent = `${p1Score} - ${p2Score} • Tap to play again`;
+      msgSub.textContent = subText + ' \u2022 Tap to play again';
       playing = false;
       setTimeout(() => {
         const restart = () => {
           document.removeEventListener('click', restart);
           document.removeEventListener('keydown', restart);
           msgOverlay.classList.add('hidden');
+          if (netMode === 'host') {
+            broadcast({ type: 'restart' });
+          }
           init();
         };
         document.addEventListener('click', restart);
@@ -357,7 +525,50 @@
       }, 1200);
     }
 
-    // Update
+    // ─── Input reading ───
+    function getLocalInput(playerId) {
+      if (netMode !== 'local') {
+        // Online: use keyboard + touch as unified input for this player
+        return {
+          up: !!(keys['w']||keys['W']||keys['ArrowUp']||touchOnline.up),
+          down: !!(keys['s']||keys['S']||keys['ArrowDown']||touchOnline.down),
+          left: !!(keys['a']||keys['A']||keys['ArrowLeft']||touchOnline.left),
+          right: !!(keys['d']||keys['D']||keys['ArrowRight']||touchOnline.right),
+          act: !!(keys[' ']||keys['Enter']||touchOnline.act),
+        };
+      }
+      // Local 2P mode
+      if (playerId === 1) {
+        return {
+          up: !!(keys['w']||keys['W']||touchLocal[1].up),
+          down: !!(keys['s']||keys['S']||touchLocal[1].down),
+          left: !!(keys['a']||keys['A']||touchLocal[1].left),
+          right: !!(keys['d']||keys['D']||touchLocal[1].right),
+          act: !!(keys[' ']||touchLocal[1].act),
+        };
+      } else {
+        return {
+          up: !!(keys['ArrowUp']||touchLocal[2].up),
+          down: !!(keys['ArrowDown']||touchLocal[2].down),
+          left: !!(keys['ArrowLeft']||touchLocal[2].left),
+          right: !!(keys['ArrowRight']||touchLocal[2].right),
+          act: !!(keys['Enter']||touchLocal[2].act),
+        };
+      }
+    }
+
+    function getInputForPlayer(playerId) {
+      if (netMode === 'local') {
+        return getLocalInput(playerId);
+      }
+      // Online: host reads own input for myPlayerId, remote for others
+      if (playerId === myPlayerId) {
+        return getLocalInput(playerId);
+      }
+      return remoteInputs[playerId] || { up:false, down:false, left:false, right:false, act:false };
+    }
+
+    // ─── Update ───
     let lastTs = null;
     function update(dt) {
       if (!playing) {
@@ -368,13 +579,15 @@
         return;
       }
 
-      // Action button tracking (press once, not hold)
-      const act1Now = !!(keys[' '] || touch[1].act);
-      const act2Now = !!(keys['Enter'] || touch[2].act);
-      const act1Tap = act1Now && !actPressed1;
-      const act2Tap = act2Now && !actPressed2;
-      actPressed1 = act1Now;
-      actPressed2 = act2Now;
+      // Read all inputs and compute act taps
+      const inputsNow = {};
+      const actTaps = {};
+      for (let pid = 1; pid <= numPlayers; pid++) {
+        inputsNow[pid] = getInputForPlayer(pid);
+        const wasPressed = actPressedState[pid] || false;
+        actTaps[pid] = inputsNow[pid].act && !wasPressed;
+        actPressedState[pid] = inputsNow[pid].act;
+      }
 
       for (const p of players) {
         if (p.diving) {
@@ -385,22 +598,15 @@
           continue;
         }
 
-        let dx = 0, dy = 0, actTap = false, actHold = false;
-        if (p.id === 1) {
-          if (keys['w']||keys['W']||touch[1].up) dy = -1;
-          if (keys['s']||keys['S']||touch[1].down) dy = 1;
-          if (keys['a']||keys['A']||touch[1].left) dx = -1;
-          if (keys['d']||keys['D']||touch[1].right) dx = 1;
-          actTap = act1Tap;
-          actHold = act1Now;
-        } else {
-          if (keys['ArrowUp']||touch[2].up) dy = -1;
-          if (keys['ArrowDown']||touch[2].down) dy = 1;
-          if (keys['ArrowLeft']||touch[2].left) dx = -1;
-          if (keys['ArrowRight']||touch[2].right) dx = 1;
-          actTap = act2Tap;
-          actHold = act2Now;
-        }
+        const inp = inputsNow[p.id];
+        let dx = 0, dy = 0;
+        if (inp.up) dy = -1;
+        if (inp.down) dy = 1;
+        if (inp.left) dx = -1;
+        if (inp.right) dx = 1;
+
+        const actTap = actTaps[p.id];
+        const actHold = inp.act;
 
         if (dx || dy) { const l = Math.hypot(dx,dy); dx/=l; dy/=l; }
 
@@ -416,8 +622,6 @@
 
         // Offense action: throw ball
         if (isOffense && isBallCarrier && actTap && !thrownBall) {
-          // Throw ball forward (toward opponent's endzone)
-          const throwDir = 0; // right = toward endzone
           const throwAngle = Math.atan2(dy, dx || 1);
           thrownBall = {
             x: p.x, y: p.y,
@@ -441,47 +645,38 @@
         }
       }
 
-      // Player collision
-      const p0 = players[0], p1p = players[1];
-      const pd = Math.hypot(p0.x-p1p.x, p0.y-p1p.y);
-      if (pd < PLAYER_R * 2 && pd > 0) {
-        const overlap = PLAYER_R*2 - pd;
-        const ax = (p0.x-p1p.x)/pd, ay = (p0.y-p1p.y)/pd;
-        p0.x += ax*overlap/2; p0.y += ay*overlap/2;
-        p1p.x -= ax*overlap/2; p1p.y -= ay*overlap/2;
+      // Player collision (all pairs)
+      for (let i = 0; i < players.length; i++) {
+        for (let j = i+1; j < players.length; j++) {
+          const a = players[i], b = players[j];
+          const pd = Math.hypot(a.x-b.x, a.y-b.y);
+          if (pd < PLAYER_R * 2 && pd > 0) {
+            const overlap = PLAYER_R*2 - pd;
+            const ax = (a.x-b.x)/pd, ay = (a.y-b.y)/pd;
+            a.x += ax*overlap/2; a.y += ay*overlap/2;
+            b.x -= ax*overlap/2; b.y -= ay*overlap/2;
+          }
+        }
       }
 
       // Tackle check
       if (ballCarrier) {
-        const defender = players.find(p => p.id !== offense);
-        const dist = Math.hypot(ballCarrier.x - defender.x, ballCarrier.y - defender.y);
-        const range = defender.diving ? DIVE_RANGE : TACKLE_RANGE;
-        if (dist < range) {
-          handleTackle();
-          return;
+        const defenders = players.filter(p => p.id !== offense);
+        for (const defender of defenders) {
+          const dist = Math.hypot(ballCarrier.x - defender.x, ballCarrier.y - defender.y);
+          const range = defender.diving ? DIVE_RANGE : TACKLE_RANGE;
+          if (dist < range) {
+            handleTackle();
+            return;
+          }
         }
 
-        // Ball follows carrier
         ball.x = ballCarrier.x;
         ball.y = ballCarrier.y;
 
-        // Touchdown check
         const yard = xToYard(ballCarrier.x);
-        if (yard >= FIELD_YARDS) {
-          handleTouchdown();
-          return;
-        }
-
-        // Safety check (run behind own endzone)
-        if (yard < 0) {
-          const def = offense === 1 ? 'P2' : 'P1';
-          const defColor = offense === 1 ? '#ff8800' : '#4fc3f7';
-          if (offense === 1) p2Score += 2; else p1Score += 2;
-          updateScoreUI();
-          spawnParticles(ballCarrier.x, ballCarrier.y, defColor, 20, 6);
-          showMessage(`<span style="color:${defColor}">SAFETY!</span>`, `${def} gets 2 points!`, 1800, () => { nextDrive(); });
-          return;
-        }
+        if (yard >= FIELD_YARDS) { handleTouchdown(); return; }
+        if (yard < 0) { handleSafety(); return; }
       }
 
       // Thrown ball
@@ -493,13 +688,14 @@
         ball.y = thrownBall.y;
 
         // Defense catch (interception)
-        const defender = players.find(p => p.id !== offense);
-        if (Math.hypot(thrownBall.x - defender.x, thrownBall.y - defender.y) < PLAYER_R + BALL_R + 5) {
-          handleInterception();
-          return;
+        const defenders = players.filter(p => p.id !== offense);
+        for (const defender of defenders) {
+          if (Math.hypot(thrownBall.x - defender.x, thrownBall.y - defender.y) < PLAYER_R + BALL_R + 5) {
+            handleInterception(defender.id);
+            return;
+          }
         }
 
-        // Out of bounds or expired
         if (thrownBall.life <= 0 ||
             thrownBall.x < fieldX || thrownBall.x > fieldX + fieldW ||
             thrownBall.y < fieldY || thrownBall.y > fieldY + fieldH) {
@@ -507,9 +703,7 @@
           return;
         }
 
-        // Touchdown via throw
         if (xToYard(thrownBall.x) >= FIELD_YARDS) {
-          // Need a receiver... treat as incomplete if nobody catches it
           handleIncomplete();
           return;
         }
@@ -522,7 +716,7 @@
       }
     }
 
-    // Draw
+    // ─── Draw ───
     function draw() {
       calcField();
       ctx.fillStyle = '#111';
@@ -610,6 +804,7 @@
       // Players
       for (const p of players) {
         const isOff = p.id === offense;
+        const colorIdx = p.id - 1;
 
         // Shadow
         ctx.fillStyle = 'rgba(0,0,0,0.3)';
@@ -619,7 +814,6 @@
         ctx.fillStyle = p.color;
         ctx.shadowColor = p.color; ctx.shadowBlur = 8;
         if (p.diving) {
-          // Diving — stretched oval
           ctx.save();
           const da = Math.atan2(p.vy, p.vx);
           ctx.translate(p.x, p.y);
@@ -632,8 +826,7 @@
         ctx.shadowBlur = 0;
 
         // Inner
-        const inner = p.id === 1 ? '#3aa0d0' : '#cc6600';
-        ctx.fillStyle = inner;
+        ctx.fillStyle = PLAYER_INNER[colorIdx];
         if (!p.diving) {
           ctx.beginPath(); ctx.arc(p.x, p.y, PLAYER_R*0.5, 0, Math.PI*2); ctx.fill();
         }
@@ -647,7 +840,10 @@
         ctx.fillStyle = p.color; ctx.globalAlpha = 0.7;
         ctx.font = 'bold 10px sans-serif';
         const role = isOff ? 'OFF' : 'DEF';
-        ctx.fillText(`P${p.id} ${role}`, p.x, p.y - PLAYER_R - 8);
+        let label = `P${p.id} ${role}`;
+        // Highlight own player in online mode
+        if (netMode !== 'local' && p.id === myPlayerId) label = `> P${p.id} ${role} <`;
+        ctx.fillText(label, p.x, p.y - PLAYER_R - 8);
         ctx.globalAlpha = 1;
       }
 
@@ -657,7 +853,6 @@
         ctx.shadowColor = '#8b4513'; ctx.shadowBlur = 6;
         ctx.beginPath(); ctx.ellipse(ball.x, ball.y, BALL_R * 1.5, BALL_R, 0, 0, Math.PI * 2); ctx.fill();
         ctx.shadowBlur = 0;
-        // Laces
         ctx.strokeStyle = '#fff'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(ball.x - 3, ball.y); ctx.lineTo(ball.x + 3, ball.y); ctx.stroke();
         for (let i = -1; i <= 1; i++) {
@@ -683,24 +878,364 @@
       // Drive counter
       ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.font = '12px sans-serif'; ctx.textAlign = 'right';
       ctx.fillText(`Drive ${driveNum}/${TOTAL_DRIVES}`, fieldX + fieldW - 4, fieldY - 6);
+
+      // Show which player you are in online mode
+      if (netMode !== 'local') {
+        ctx.fillStyle = PLAYER_COLORS[myPlayerId - 1]; ctx.font = 'bold 13px sans-serif'; ctx.textAlign = 'left';
+        ctx.fillText(`You are P${myPlayerId}`, fieldX + 4, fieldY - 6);
+      }
     }
 
+    // ─── Network: state sync ───
+    function broadcast(data) {
+      for (const conn of conns) {
+        if (conn.open) conn.send(data);
+      }
+    }
+
+    function buildStateSnapshot() {
+      // Convert positions to yard-based coords for screen-size independence
+      const pStates = players.map(p => ({
+        id: p.id,
+        yard: xToYard(p.x),
+        yFrac: (p.y - fieldY) / fieldH,
+        vx: p.vx, vy: p.vy,
+        diving: p.diving, diveTimer: p.diveTimer,
+        color: p.color,
+      }));
+      const bcId = ballCarrier ? ballCarrier.id : 0;
+      return {
+        type: 'state',
+        players: pStates,
+        ballYard: xToYard(ball.x),
+        ballYFrac: (ball.y - fieldY) / fieldH,
+        thrownBall: thrownBall ? {
+          yard: xToYard(thrownBall.x),
+          yFrac: (thrownBall.y - fieldY) / fieldH,
+          vx: thrownBall.vx, vy: thrownBall.vy,
+          life: thrownBall.life,
+        } : null,
+        scores: scores,
+        down: down,
+        yardsToGo: yardsToGo,
+        driveNum: driveNum,
+        offense: offense,
+        lineOfScrimmage: lineOfScrimmage,
+        firstDownLine: firstDownLine,
+        ballCarrierId: bcId,
+        playing: playing,
+      };
+    }
+
+    function applyStateSnapshot(s) {
+      calcField();
+      // Rebuild players from snapshot
+      players = s.players.map(ps => {
+        const p = makePlayer(
+          yardToX(ps.yard),
+          fieldY + ps.yFrac * fieldH,
+          ps.color,
+          ps.id
+        );
+        p.vx = ps.vx; p.vy = ps.vy;
+        p.diving = ps.diving; p.diveTimer = ps.diveTimer;
+        return p;
+      });
+
+      ball = {
+        x: yardToX(s.ballYard),
+        y: fieldY + s.ballYFrac * fieldH,
+      };
+
+      if (s.thrownBall) {
+        thrownBall = {
+          x: yardToX(s.thrownBall.yard),
+          y: fieldY + s.thrownBall.yFrac * fieldH,
+          vx: s.thrownBall.vx, vy: s.thrownBall.vy,
+          life: s.thrownBall.life,
+        };
+      } else {
+        thrownBall = null;
+      }
+
+      ballCarrier = s.ballCarrierId ? players.find(p => p.id === s.ballCarrierId) || null : null;
+      scores = s.scores;
+      down = s.down;
+      yardsToGo = s.yardsToGo;
+      driveNum = s.driveNum;
+      offense = s.offense;
+      lineOfScrimmage = s.lineOfScrimmage;
+      firstDownLine = s.firstDownLine;
+      playing = s.playing;
+
+      updateScoreUI();
+      updateHUD();
+    }
+
+    let sendTimer = 0;
+    const SEND_INTERVAL = 50; // ~20Hz
+
+    // ─── Game Loop ───
     function gameLoop(ts) {
       if (!lastTs) lastTs = ts;
       let dt = ts - lastTs; lastTs = ts;
       if (dt > 50) dt = 50;
-      if (gameStarted) { update(dt); draw(); }
+
+      if (gameStarted) {
+        if (netMode === 'local' || netMode === 'host') {
+          update(dt);
+
+          // Host broadcasts state
+          if (netMode === 'host') {
+            sendTimer += dt;
+            if (sendTimer >= SEND_INTERVAL) {
+              sendTimer = 0;
+              broadcast(buildStateSnapshot());
+            }
+          }
+        } else if (netMode === 'guest') {
+          // Guest: only update particles
+          for (let i = particles.length-1; i>=0; i--) {
+            const p = particles[i]; p.x+=p.vx; p.y+=p.vy; p.vx*=0.95; p.vy*=0.95; p.life-=dt;
+            if (p.life<=0) particles.splice(i,1);
+          }
+
+          // Send input to host
+          const myInput = getLocalInput(myPlayerId);
+          if (conns[0] && conns[0].open) {
+            conns[0].send({ type: 'input', input: myInput });
+          }
+        }
+
+        draw();
+      }
       requestAnimationFrame(gameLoop);
     }
 
-    gameStarted = false;
-    document.getElementById('start-btn').addEventListener('click', () => {
+    // ─── Lobby Logic ───
+    const lobbyModeSelect = document.getElementById('lobby-mode-select');
+    const lobbyHost = document.getElementById('lobby-host');
+    const lobbyJoin = document.getElementById('lobby-join');
+    const hostCodeEl = document.getElementById('host-code');
+    const hostStatus = document.getElementById('host-status');
+    const joinInput = document.getElementById('join-input');
+    const joinStatus = document.getElementById('join-status');
+
+    function showLobbyScreen(screen) {
+      lobbyModeSelect.style.display = screen === 'select' ? '' : 'none';
+      lobbyHost.style.display = screen === 'host' ? '' : 'none';
+      lobbyJoin.style.display = screen === 'join' ? '' : 'none';
+    }
+
+    function generateCode() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let code = '';
+      for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+      return code;
+    }
+
+    function startGame() {
       gameStarted = true;
       startOverlay.classList.add('hidden');
       hud.classList.remove('hidden');
+      // Show appropriate touch controls
+      if (netMode === 'local') {
+        document.getElementById('touch-controls').style.display = 'none';
+        // Local touch controls shown via CSS media query
+      } else {
+        document.getElementById('touch-p1-local').style.display = 'none';
+        document.getElementById('touch-p2-local').style.display = 'none';
+        // Online touch shown via CSS media query on #touch-controls
+      }
       init();
+    }
+
+    // LOCAL
+    document.getElementById('btn-local').addEventListener('click', () => {
+      netMode = 'local';
+      numPlayers = 2;
+      TOTAL_DRIVES = 8;
+      startGame();
     });
 
+    // HOST
+    document.getElementById('btn-create').addEventListener('click', () => {
+      showLobbyScreen('host');
+      netMode = 'host';
+      numPlayers = 3;
+      TOTAL_DRIVES = 9;
+      myPlayerId = 1;
+      conns = [];
+      remoteInputs = {};
+
+      const code = generateCode();
+      hostCodeEl.textContent = code;
+      hostStatus.textContent = 'Creating room...';
+      hostStatus.classList.remove('error');
+
+      peer = new Peer('fb-' + code, { debug: 0 });
+
+      peer.on('open', () => {
+        hostStatus.textContent = 'Waiting for players... (0/2 joined)';
+      });
+
+      peer.on('error', (err) => {
+        if (err.type === 'unavailable-id') {
+          hostStatus.textContent = 'Code taken, try again.';
+          hostStatus.classList.add('error');
+          peer.destroy();
+          setTimeout(() => {
+            // Auto-retry with new code
+            document.getElementById('btn-create').click();
+          }, 500);
+        } else {
+          hostStatus.textContent = 'Error: ' + err.message;
+          hostStatus.classList.add('error');
+        }
+      });
+
+      let nextGuestId = 2;
+
+      peer.on('connection', (conn) => {
+        if (conns.length >= 2) {
+          conn.on('open', () => {
+            conn.send({ type: 'full' });
+            conn.close();
+          });
+          return;
+        }
+
+        const guestId = nextGuestId++;
+        conn._playerId = guestId;
+        conns.push(conn);
+
+        conn.on('open', () => {
+          conn.send({ type: 'assign', id: guestId });
+          hostStatus.textContent = `Waiting for players... (${conns.length}/2 joined)`;
+
+          if (conns.length === 2) {
+            hostStatus.textContent = 'All players joined! Starting...';
+            setTimeout(() => {
+              broadcast({ type: 'start' });
+              startGame();
+            }, 800);
+          }
+        });
+
+        conn.on('data', (data) => {
+          if (data.type === 'input') {
+            remoteInputs[conn._playerId] = data.input;
+          }
+        });
+
+        conn.on('close', () => {
+          conns = conns.filter(c => c !== conn);
+          delete remoteInputs[conn._playerId];
+          if (gameStarted) {
+            // Player disconnected during game — continue but note it
+          } else {
+            hostStatus.textContent = `Waiting for players... (${conns.length}/2 joined)`;
+          }
+        });
+      });
+    });
+
+    document.getElementById('btn-host-back').addEventListener('click', () => {
+      if (peer) { peer.destroy(); peer = null; }
+      conns = [];
+      showLobbyScreen('select');
+    });
+
+    // JOIN
+    document.getElementById('btn-join').addEventListener('click', () => {
+      showLobbyScreen('join');
+      joinStatus.textContent = '';
+      joinStatus.classList.remove('error');
+      joinInput.value = '';
+      setTimeout(() => joinInput.focus(), 100);
+    });
+
+    document.getElementById('btn-join-back').addEventListener('click', () => {
+      if (peer) { peer.destroy(); peer = null; }
+      conns = [];
+      showLobbyScreen('select');
+    });
+
+    function doJoin() {
+      const code = joinInput.value.trim().toUpperCase();
+      if (code.length < 3) {
+        joinStatus.textContent = 'Enter a valid code';
+        joinStatus.classList.add('error');
+        return;
+      }
+
+      joinStatus.textContent = 'Connecting...';
+      joinStatus.classList.remove('error');
+      document.getElementById('btn-join-go').disabled = true;
+
+      netMode = 'guest';
+      numPlayers = 3;
+      TOTAL_DRIVES = 9;
+      conns = [];
+
+      peer = new Peer(undefined, { debug: 0 });
+
+      peer.on('open', () => {
+        const conn = peer.connect('fb-' + code, { reliable: true });
+
+        conn.on('open', () => {
+          conns = [conn];
+          joinStatus.textContent = 'Connected! Waiting for host to start...';
+        });
+
+        conn.on('data', (data) => {
+          if (data.type === 'assign') {
+            myPlayerId = data.id;
+            joinStatus.textContent = `You are Player ${myPlayerId}. Waiting for game to start...`;
+          } else if (data.type === 'start') {
+            startGame();
+          } else if (data.type === 'state') {
+            applyStateSnapshot(data);
+          } else if (data.type === 'msg') {
+            showMessageLocal(data.title, data.sub, data.duration);
+          } else if (data.type === 'restart') {
+            msgOverlay.classList.add('hidden');
+            init();
+          } else if (data.type === 'full') {
+            joinStatus.textContent = 'Room is full!';
+            joinStatus.classList.add('error');
+            document.getElementById('btn-join-go').disabled = false;
+          }
+        });
+
+        conn.on('close', () => {
+          joinStatus.textContent = 'Disconnected from host.';
+          joinStatus.classList.add('error');
+          document.getElementById('btn-join-go').disabled = false;
+        });
+
+        conn.on('error', () => {
+          joinStatus.textContent = 'Connection error.';
+          joinStatus.classList.add('error');
+          document.getElementById('btn-join-go').disabled = false;
+        });
+      });
+
+      peer.on('error', (err) => {
+        joinStatus.textContent = 'Could not connect: ' + err.message;
+        joinStatus.classList.add('error');
+        document.getElementById('btn-join-go').disabled = false;
+      });
+    }
+
+    document.getElementById('btn-join-go').addEventListener('click', doJoin);
+    joinInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doJoin();
+    });
+
+    // ─── Start ───
+    gameStarted = false;
+    showLobbyScreen('select');
     requestAnimationFrame(gameLoop);
   </script>
 </body>

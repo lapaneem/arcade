@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Basketball</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body { background: #0a0a0a; overflow: hidden; font-family: 'Segoe UI', Tahoma, sans-serif; }
+    canvas { display: block; }
+
+    #start-overlay {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: #fff; background: rgba(0,0,0,0.9); z-index: 100;
+    }
+    #start-overlay.hidden { display: none; }
+    #start-overlay h1 { font-size: 48px; margin-bottom: 6px; color: #f57c00; }
+    #start-overlay .sub { font-size: 22px; color: #f0a500; margin-bottom: 16px; }
+    #start-overlay p { font-size: 15px; color: #aaa; margin-bottom: 4px; }
+    .start-btn {
+      margin-top: 20px; padding: 16px 46px; font-size: 24px; font-weight: bold;
+      border: 3px solid #f57c00; border-radius: 12px; cursor: pointer; color: #fff;
+      background: rgba(22,33,62,0.9); transition: all 0.15s;
+    }
+    .start-btn:hover { border-color: #f0a500; box-shadow: 0 0 25px rgba(245,124,0,0.3); }
+    .controls-info { margin-top: 18px; color: #555; font-size: 13px; line-height: 1.8; text-align: center; }
+
+    #msg-overlay {
+      position: absolute; top:0; left:0; right:0; bottom:0;
+      display: flex; flex-direction: column; justify-content: center; align-items: center;
+      color: #fff; background: rgba(0,0,0,0.6); z-index: 90; pointer-events: none;
+    }
+    #msg-overlay.hidden { display: none; }
+    #msg-overlay h1 { font-size: 56px; text-shadow: 0 0 30px rgba(245,124,0,0.6); }
+    #msg-overlay p { font-size: 24px; margin-top: 8px; color: #aaa; }
+
+    #hud {
+      position: absolute; top: 10px; left: 50%; transform: translateX(-50%);
+      display: flex; gap: 16px; align-items: center; z-index: 50;
+      font-weight: bold; color: #fff; text-shadow: 0 0 8px rgba(0,0,0,0.8);
+      background: rgba(0,0,0,0.5); padding: 6px 20px; border-radius: 14px; font-size: 20px;
+    }
+    #hud.hidden { display: none; }
+    .h-p1 { color: #4fc3f7; }
+    .h-p2 { color: #ff8800; }
+    .h-sep { color: #444; }
+    #hud-info { font-size: 14px; color: #aaa; }
+
+    /* Touch controls */
+    #touch-p1, #touch-p2 { display: none; position: fixed; z-index: 60; pointer-events: none; }
+    @media (hover: none) and (pointer: coarse) { #touch-p1, #touch-p2 { display: block; } }
+    #touch-p1 { bottom: 8px; left: 8px; }
+    #touch-p2 { bottom: 8px; right: 8px; }
+    .tc { display: flex; align-items: center; gap: 6px; pointer-events: auto; }
+    .tc.rs { flex-direction: row-reverse; }
+    .tdp { display: grid; grid-template-columns: 44px 44px 44px; grid-template-rows: 44px 44px 44px; gap: 3px; }
+    .td {
+      width: 44px; height: 44px; background: rgba(255,255,255,0.1); border: 2px solid rgba(255,255,255,0.2);
+      border-radius: 10px; color: #fff; font-size: 17px;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none; -webkit-user-select: none; pointer-events: auto;
+    }
+    .td:active { background: rgba(255,255,255,0.3); }
+    .td.empty { background: none; border: none; pointer-events: none; }
+    #touch-p1 .td { border-color: rgba(79,195,247,0.3); }
+    #touch-p2 .td { border-color: rgba(255,136,0,0.3); }
+    .tact {
+      width: 64px; height: 64px; border-radius: 50%;
+      background: rgba(245,124,0,0.3); border: 3px solid rgba(245,124,0,0.6);
+      color: #fff; font-size: 11px; font-weight: bold;
+      display: flex; align-items: center; justify-content: center;
+      user-select: none; -webkit-user-select: none; pointer-events: auto;
+    }
+    .tact:active { background: rgba(245,124,0,0.55); }
+    #touch-p2 .tact { background: rgba(255,136,0,0.2); border-color: rgba(255,136,0,0.5); }
+  </style>
+</head>
+<body>
+  <canvas id="game"></canvas>
+
+  <div id="hud" class="hidden">
+    <span class="h-p1" id="hp1">P1: 0</span>
+    <span class="h-sep">|</span>
+    <span class="h-p2" id="hp2">P2: 0</span>
+    <span class="h-sep">|</span>
+    <span id="hud-info">First to 21</span>
+  </div>
+
+  <div id="msg-overlay" class="hidden">
+    <h1 id="msg-title"></h1>
+    <p id="msg-sub"></p>
+  </div>
+
+  <div id="start-overlay">
+    <h1>🏀 Basketball</h1>
+    <div class="sub">1v1 Half Court</div>
+    <p>Drive to the hoop and score!</p>
+    <p>Steal the ball on defense!</p>
+    <p style="color:#f0a500;margin-top:8px;">First to 21 points wins!</p>
+    <button class="start-btn" id="start-btn">TIP OFF</button>
+    <div class="controls-info">
+      P1 (Blue): <b>WASD</b> move &bull; <b>Space</b> shoot/steal<br>
+      P2 (Orange): <b>Arrows</b> move &bull; <b>Enter</b> shoot/steal<br>
+      Near hoop with ball: <b>Shoot!</b> &bull; Near opponent: <b>Steal!</b>
+    </div>
+  </div>
+
+  <div id="touch-p1">
+    <div class="tc">
+      <div class="tdp">
+        <div class="td empty"></div><div class="td" data-p="1" data-k="up">&#9650;</div><div class="td empty"></div>
+        <div class="td" data-p="1" data-k="left">&#9664;</div><div class="td empty"></div><div class="td" data-p="1" data-k="right">&#9654;</div>
+        <div class="td empty"></div><div class="td" data-p="1" data-k="down">&#9660;</div><div class="td empty"></div>
+      </div>
+      <div class="tact" data-p="1" data-k="act">ACT</div>
+    </div>
+  </div>
+  <div id="touch-p2">
+    <div class="tc rs">
+      <div class="tdp">
+        <div class="td empty"></div><div class="td" data-p="2" data-k="up">&#9650;</div><div class="td empty"></div>
+        <div class="td" data-p="2" data-k="left">&#9664;</div><div class="td empty"></div><div class="td" data-p="2" data-k="right">&#9654;</div>
+        <div class="td empty"></div><div class="td" data-p="2" data-k="down">&#9660;</div><div class="td empty"></div>
+      </div>
+      <div class="tact" data-p="2" data-k="act">ACT</div>
+    </div>
+  </div>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const startOverlay = document.getElementById('start-overlay');
+    const msgOverlay = document.getElementById('msg-overlay');
+    const msgTitle = document.getElementById('msg-title');
+    const msgSub = document.getElementById('msg-sub');
+    const hudEl = document.getElementById('hud');
+    const hp1 = document.getElementById('hp1');
+    const hp2 = document.getElementById('hp2');
+    const hudInfo = document.getElementById('hud-info');
+
+    let W, H;
+    function resize() { W = canvas.width = window.innerWidth; H = canvas.height = window.innerHeight; }
+    window.addEventListener('resize', resize);
+    resize();
+
+    // ─── Input ───
+    const keys = {};
+    document.addEventListener('keydown', e => {
+      keys[e.key] = true;
+      if (['ArrowUp','ArrowDown','ArrowLeft','ArrowRight',' '].includes(e.key)) e.preventDefault();
+    });
+    document.addEventListener('keyup', e => { keys[e.key] = false; });
+
+    const touch = { 1: {}, 2: {} };
+    document.querySelectorAll('[data-p]').forEach(el => {
+      const p = el.dataset.p, k = el.dataset.k;
+      el.addEventListener('touchstart', e => { e.preventDefault(); touch[p][k] = true; }, { passive: false });
+      el.addEventListener('touchend', e => { e.preventDefault(); touch[p][k] = false; }, { passive: false });
+      el.addEventListener('touchcancel', () => { touch[p][k] = false; });
+    });
+
+    function getInput(pid) {
+      if (pid === 1) {
+        return {
+          up: !!(keys['w']||keys['W']||touch[1].up),
+          down: !!(keys['s']||keys['S']||touch[1].down),
+          left: !!(keys['a']||keys['A']||touch[1].left),
+          right: !!(keys['d']||keys['D']||touch[1].right),
+          act: !!(keys[' ']||touch[1].act),
+        };
+      }
+      return {
+        up: !!(keys['ArrowUp']||touch[2].up),
+        down: !!(keys['ArrowDown']||touch[2].down),
+        left: !!(keys['ArrowLeft']||touch[2].left),
+        right: !!(keys['ArrowRight']||touch[2].right),
+        act: !!(keys['Enter']||touch[2].act),
+      };
+    }
+
+    // ─── Court Constants ───
+    const COURT_W = 550;
+    const COURT_H = 380;
+    const PLAYER_R = 14;
+    const BALL_R = 7;
+    const HOOP_X = COURT_W - 28;
+    const HOOP_Y = COURT_H / 2;
+    const HOOP_R = 11;
+    const BACKBOARD_H = 46;
+    const THREE_PT_R = 170;
+    const KEY_W = 95;
+    const KEY_H = 130;
+    const FT_R = 55;
+    const SHOOT_RANGE = 210;
+    const STEAL_RANGE = 35;
+    const STEAL_COOLDOWN = 800;
+    const STEAL_CHANCE = 0.40;
+    const PICKUP_RANGE = 20;
+    const SCORE_TO_WIN = 21;
+
+    const P_COLORS = ['#4fc3f7', '#ff8800'];
+    const P_INNER = ['#3aa0d0', '#cc6600'];
+
+    let courtX, courtY, courtScale;
+    function calcCourt() {
+      const pad = 30;
+      const availW = W - pad * 2;
+      const availH = H - pad * 2 - 40;
+      courtScale = Math.min(availW / COURT_W, availH / COURT_H);
+      courtX = (W - COURT_W * courtScale) / 2;
+      courtY = (H - COURT_H * courtScale) / 2 + 15;
+    }
+
+    function toSX(gx) { return courtX + gx * courtScale; }
+    function toSY(gy) { return courtY + gy * courtScale; }
+    function toSR(r) { return r * courtScale; }
+
+    // ─── Game State ───
+    let scores, players, ball, possession;
+    let gameStarted, playing, particles, floatingTexts;
+    let actPressed, streak, mustClear;
+    let shakeDx, shakeDy, shakeTimer;
+
+    function makePlayer(x, y, id) {
+      return {
+        x, y, id,
+        hasBall: false,
+        stealCooldown: 0,
+        onFire: false,
+        facing: { x: 1, y: 0 },
+      };
+    }
+
+    function init() {
+      calcCourt();
+      scores = [0, 0];
+      streak = [0, 0];
+      actPressed = { 1: false, 2: false };
+      particles = [];
+      floatingTexts = [];
+      playing = true;
+      mustClear = false;
+      shakeDx = 0; shakeDy = 0; shakeTimer = 0;
+
+      players = [
+        makePlayer(COURT_W * 0.3, COURT_H * 0.5, 1),
+        makePlayer(COURT_W * 0.6, COURT_H * 0.5, 2),
+      ];
+
+      ball = {
+        x: 0, y: 0, vx: 0, vy: 0,
+        z: 0,
+        state: 'held', // held, loose, shooting
+        holder: null,
+        bounceTimer: 0,
+        shotOrigin: null, shotTarget: null,
+        shotTime: 0, shotDuration: 600,
+        willMake: false, shotPoints: 0,
+        shooterId: 0,
+      };
+
+      // P1 starts with ball
+      possession = 1;
+      players[0].hasBall = true;
+      ball.state = 'held';
+      ball.holder = players[0];
+
+      updateScoreUI();
+    }
+
+    function resetPossession(pid) {
+      const off = players[pid - 1];
+      const def = players[pid === 1 ? 1 : 0];
+
+      off.x = COURT_W * 0.28;
+      off.y = COURT_H * 0.5;
+      off.hasBall = true;
+      off.stealCooldown = 0;
+
+      def.x = COURT_W * 0.6;
+      def.y = COURT_H * 0.5;
+      def.hasBall = false;
+      def.stealCooldown = 0;
+
+      ball.state = 'held';
+      ball.holder = off;
+      ball.z = 0;
+      ball.vx = 0;
+      ball.vy = 0;
+      possession = pid;
+      mustClear = false;
+      updateHudInfo();
+    }
+
+    // ─── UI ───
+    function updateScoreUI() {
+      hp1.textContent = `P1: ${scores[0]}`;
+      hp2.textContent = `P2: ${scores[1]}`;
+    }
+
+    function updateHudInfo() {
+      if (mustClear) {
+        hudInfo.innerHTML = `<span style="color:${P_COLORS[possession-1]}">P${possession} must clear</span>`;
+      } else {
+        hudInfo.innerHTML = `<span style="color:${P_COLORS[possession-1]}">P${possession} ball</span> &bull; First to ${SCORE_TO_WIN}`;
+      }
+    }
+
+    function showMessage(title, sub, duration, callback) {
+      msgOverlay.classList.remove('hidden');
+      msgTitle.innerHTML = title;
+      msgSub.textContent = sub;
+      playing = false;
+      setTimeout(() => {
+        msgOverlay.classList.add('hidden');
+        if (callback) callback();
+        playing = true;
+      }, duration);
+    }
+
+    function spawnParticles(x, y, color, count, speed) {
+      for (let i = 0; i < count; i++) {
+        const a = Math.random() * Math.PI * 2, s = Math.random() * speed + 1;
+        particles.push({
+          x, y, vx: Math.cos(a) * s, vy: Math.sin(a) * s,
+          radius: Math.random() * 3 + 1, color,
+          life: 400 + Math.random() * 300, maxLife: 700,
+        });
+      }
+    }
+
+    function addFloatingText(x, y, text, color) {
+      floatingTexts.push({ x, y, text, color, life: 1200, maxLife: 1200 });
+    }
+
+    function triggerShake(amount) {
+      shakeTimer = 150;
+      shakeDx = (Math.random() - 0.5) * amount;
+      shakeDy = (Math.random() - 0.5) * amount;
+    }
+
+    // ─── Game Logic ───
+    function distToHoop(p) {
+      return Math.hypot(p.x - HOOP_X, p.y - HOOP_Y);
+    }
+
+    function clearLineX() {
+      return HOOP_X - THREE_PT_R - 20;
+    }
+
+    function initiateShot(player) {
+      const defender = players[player.id === 1 ? 1 : 0];
+      const dist = distToHoop(player);
+      const defDist = Math.hypot(defender.x - player.x, defender.y - player.y);
+
+      ball.state = 'shooting';
+      ball.holder = null;
+      player.hasBall = false;
+      ball.shooterId = player.id;
+
+      ball.shotOrigin = { x: player.x, y: player.y };
+      ball.shotTarget = { x: HOOP_X, y: HOOP_Y };
+      ball.shotTime = 0;
+      ball.shotDuration = 500 + dist * 0.5; // farther = longer flight
+      ball.z = 0;
+
+      // Calculate make chance
+      let chance;
+      if (dist < 60) chance = 0.85;       // layup
+      else if (dist < THREE_PT_R) chance = 0.55; // mid-range
+      else chance = 0.35;                  // 3-pointer
+
+      if (defDist < 40) chance -= 0.25;    // contested
+      if (defDist > 80) chance += 0.10;    // open
+      if (player.onFire) chance += 0.15;   // on fire bonus
+
+      chance = Math.max(0.05, Math.min(0.95, chance));
+      ball.willMake = Math.random() < chance;
+      ball.shotPoints = dist >= THREE_PT_R ? 3 : 2;
+    }
+
+    function handleScore(shooterId, points) {
+      scores[shooterId - 1] += points;
+      const oppId = shooterId === 1 ? 2 : 1;
+
+      // Streak
+      streak[shooterId - 1]++;
+      streak[oppId - 1] = 0;
+
+      const shooter = players[shooterId - 1];
+      const wasOnFire = shooter.onFire;
+      if (streak[shooterId - 1] >= 3 && !wasOnFire) {
+        shooter.onFire = true;
+      }
+
+      // Reset opponent fire on score against them
+      players[oppId - 1].onFire = false;
+
+      updateScoreUI();
+
+      const color = P_COLORS[shooterId - 1];
+      spawnParticles(HOOP_X, HOOP_Y, '#f0a500', 25, 7);
+      spawnParticles(HOOP_X, HOOP_Y, color, 15, 5);
+      addFloatingText(HOOP_X, HOOP_Y - 30, `+${points}`, color);
+
+      if (scores[shooterId - 1] >= SCORE_TO_WIN) {
+        gameOver(shooterId);
+        return;
+      }
+
+      const label = points === 3 ? 'THREE!' : 'SCORE!';
+      const fireMsg = (shooter.onFire && !wasOnFire) ? ' ON FIRE!' : '';
+      showMessage(
+        `<span style="color:${color}">${label}${fireMsg}</span>`,
+        `P${shooterId} +${points}`,
+        1500,
+        () => { resetPossession(oppId); }
+      );
+    }
+
+    function handleMiss() {
+      ball.state = 'loose';
+      ball.z = 0;
+      ball.x = HOOP_X - 15 + Math.random() * 35;
+      ball.y = HOOP_Y - 35 + Math.random() * 70;
+      const angle = Math.PI + (Math.random() - 0.5) * 1.5;
+      ball.vx = Math.cos(angle) * (2.5 + Math.random() * 2);
+      ball.vy = Math.sin(angle) * (1.5 + Math.random() * 2);
+      spawnParticles(HOOP_X, HOOP_Y, '#aaa', 8, 3);
+      triggerShake(4);
+    }
+
+    function attemptSteal(player) {
+      if (player.stealCooldown > 0) return;
+      const opp = players[player.id === 1 ? 1 : 0];
+      if (!opp.hasBall) return;
+      if (Math.hypot(player.x - opp.x, player.y - opp.y) > STEAL_RANGE) return;
+
+      player.stealCooldown = STEAL_COOLDOWN;
+
+      if (Math.random() < STEAL_CHANCE) {
+        opp.hasBall = false;
+        ball.holder = null;
+        ball.state = 'loose';
+        ball.x = (player.x + opp.x) / 2;
+        ball.y = (player.y + opp.y) / 2;
+        ball.vx = (player.x - opp.x) * 0.08;
+        ball.vy = (player.y - opp.y) * 0.08;
+        ball.z = 0;
+        spawnParticles(ball.x, ball.y, '#ff4444', 10, 4);
+        triggerShake(5);
+        // Will need to clear after pickup
+        mustClear = true;
+        updateHudInfo();
+      } else {
+        spawnParticles(player.x, player.y, '#666', 5, 2);
+      }
+    }
+
+    function gameOver(winnerId) {
+      const color = P_COLORS[winnerId - 1];
+      msgOverlay.classList.remove('hidden');
+      msgTitle.innerHTML = `<span style="color:${color}">P${winnerId} WINS!</span>`;
+      msgSub.textContent = `${scores[0]} - ${scores[1]} \u2022 Tap to play again`;
+      playing = false;
+      setTimeout(() => {
+        const restart = () => {
+          document.removeEventListener('click', restart);
+          document.removeEventListener('keydown', restart);
+          msgOverlay.classList.add('hidden');
+          init();
+        };
+        document.addEventListener('click', restart);
+        document.addEventListener('keydown', restart);
+      }, 1200);
+    }
+
+    // ─── Update ───
+    let lastTs = null;
+    function update(dt) {
+      // Particles + floating text always update
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx; p.y += p.vy; p.vx *= 0.95; p.vy *= 0.95; p.life -= dt;
+        if (p.life <= 0) particles.splice(i, 1);
+      }
+      for (let i = floatingTexts.length - 1; i >= 0; i--) {
+        floatingTexts[i].y -= 0.3;
+        floatingTexts[i].life -= dt;
+        if (floatingTexts[i].life <= 0) floatingTexts.splice(i, 1);
+      }
+
+      if (shakeTimer > 0) {
+        shakeTimer -= dt;
+        if (shakeTimer <= 0) { shakeDx = 0; shakeDy = 0; }
+      }
+
+      if (!playing) return;
+
+      // Read inputs
+      const inputs = {};
+      const actTaps = {};
+      for (let pid = 1; pid <= 2; pid++) {
+        inputs[pid] = getInput(pid);
+        actTaps[pid] = inputs[pid].act && !actPressed[pid];
+        actPressed[pid] = inputs[pid].act;
+      }
+
+      // Update players
+      for (const p of players) {
+        const inp = inputs[p.id];
+        let dx = 0, dy = 0;
+        if (inp.up) dy = -1;
+        if (inp.down) dy = 1;
+        if (inp.left) dx = -1;
+        if (inp.right) dx = 1;
+        if (dx || dy) {
+          const l = Math.hypot(dx, dy); dx /= l; dy /= l;
+          p.facing.x = dx; p.facing.y = dy;
+        }
+
+        const spd = p.hasBall ? 2.6 : 3.2;
+        p.x += dx * spd;
+        p.y += dy * spd;
+
+        p.x = Math.max(PLAYER_R, Math.min(COURT_W - PLAYER_R, p.x));
+        p.y = Math.max(PLAYER_R, Math.min(COURT_H - PLAYER_R, p.y));
+
+        if (p.stealCooldown > 0) p.stealCooldown -= dt;
+
+        // Fire trail particles
+        if (p.onFire && (dx || dy)) {
+          if (Math.random() < 0.3) {
+            spawnParticles(p.x, p.y, '#f0a500', 1, 2);
+          }
+        }
+
+        // Action
+        if (actTaps[p.id]) {
+          if (p.hasBall && ball.state === 'held') {
+            const dist = distToHoop(p);
+            if (dist < SHOOT_RANGE && !(mustClear && possession === p.id)) {
+              initiateShot(p);
+            }
+          } else if (!p.hasBall && ball.state === 'held') {
+            attemptSteal(p);
+          }
+        }
+      }
+
+      // Player collision
+      const p0 = players[0], p1p = players[1];
+      const pd = Math.hypot(p0.x - p1p.x, p0.y - p1p.y);
+      if (pd < PLAYER_R * 2 && pd > 0) {
+        const overlap = PLAYER_R * 2 - pd;
+        const ax = (p0.x - p1p.x) / pd, ay = (p0.y - p1p.y) / pd;
+        p0.x += ax * overlap / 2; p0.y += ay * overlap / 2;
+        p1p.x -= ax * overlap / 2; p1p.y -= ay * overlap / 2;
+      }
+
+      // Ball logic
+      if (ball.state === 'held' && ball.holder) {
+        ball.x = ball.holder.x + ball.holder.facing.x * 10;
+        ball.y = ball.holder.y + ball.holder.facing.y * 10;
+        ball.bounceTimer += dt * 0.008;
+
+        // Check clear
+        if (mustClear && ball.holder.id === possession) {
+          if (ball.holder.x < clearLineX()) {
+            mustClear = false;
+            updateHudInfo();
+          }
+        }
+      } else if (ball.state === 'loose') {
+        ball.x += ball.vx;
+        ball.y += ball.vy;
+        ball.vx *= 0.96;
+        ball.vy *= 0.96;
+
+        // Bounce off court walls
+        if (ball.x < BALL_R) { ball.x = BALL_R; ball.vx *= -0.7; }
+        if (ball.x > COURT_W - BALL_R) { ball.x = COURT_W - BALL_R; ball.vx *= -0.7; }
+        if (ball.y < BALL_R) { ball.y = BALL_R; ball.vy *= -0.7; }
+        if (ball.y > COURT_H - BALL_R) { ball.y = COURT_H - BALL_R; ball.vy *= -0.7; }
+
+        // Pickup check
+        for (const p of players) {
+          if (Math.hypot(p.x - ball.x, p.y - ball.y) < PLAYER_R + BALL_R + PICKUP_RANGE) {
+            ball.state = 'held';
+            ball.holder = p;
+            p.hasBall = true;
+            ball.vx = 0;
+            ball.vy = 0;
+            possession = p.id;
+
+            // If picked up by non-shooter after miss, need to clear
+            if (mustClear || ball.shooterId !== p.id) {
+              // Defender grabbed rebound or steal recovery
+              if (ball.shooterId !== p.id) {
+                mustClear = true;
+              }
+            }
+            updateHudInfo();
+            break;
+          }
+        }
+      } else if (ball.state === 'shooting') {
+        ball.shotTime += dt;
+        const t = Math.min(ball.shotTime / ball.shotDuration, 1);
+
+        ball.x = ball.shotOrigin.x + (ball.shotTarget.x - ball.shotOrigin.x) * t;
+        ball.y = ball.shotOrigin.y + (ball.shotTarget.y - ball.shotOrigin.y) * t;
+        ball.z = Math.sin(t * Math.PI) * 80;
+
+        if (t >= 1.0) {
+          if (ball.willMake) {
+            handleScore(ball.shooterId, ball.shotPoints);
+          } else {
+            handleMiss();
+          }
+        }
+      }
+    }
+
+    // ─── Draw ───
+    function draw() {
+      calcCourt();
+      ctx.fillStyle = '#111';
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.translate(courtX + shakeDx, courtY + shakeDy);
+      ctx.scale(courtScale, courtScale);
+
+      drawCourt();
+      drawHoop();
+
+      if (!players) { ctx.restore(); return; }
+
+      // Clear line indicator
+      if (mustClear) {
+        const clx = clearLineX();
+        ctx.strokeStyle = 'rgba(255,255,0,0.4)';
+        ctx.lineWidth = 2;
+        ctx.setLineDash([6, 4]);
+        ctx.beginPath();
+        ctx.moveTo(clx, 0);
+        ctx.lineTo(clx, COURT_H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        ctx.fillStyle = 'rgba(255,255,0,0.3)';
+        ctx.font = 'bold 10px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('CLEAR', clx, 12);
+      }
+
+      // Ball shadow when shooting
+      if (ball.state === 'shooting' && ball.z > 0) {
+        const shadowScale = Math.max(0.3, 1 - ball.z / 120);
+        ctx.fillStyle = 'rgba(0,0,0,0.15)';
+        ctx.beginPath();
+        ctx.ellipse(ball.x, ball.y, BALL_R * shadowScale * 1.5, BALL_R * shadowScale * 0.8, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // Players
+      for (const p of players) {
+        const ci = p.id - 1;
+
+        // Shadow
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.beginPath();
+        ctx.ellipse(p.x + 2, p.y + 3, PLAYER_R, PLAYER_R * 0.5, 0, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Fire ring
+        if (p.onFire) {
+          ctx.strokeStyle = '#f0a500';
+          ctx.lineWidth = 3;
+          ctx.shadowColor = '#ff6600';
+          ctx.shadowBlur = 12;
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, PLAYER_R + 4, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.shadowBlur = 0;
+        }
+
+        // Body
+        ctx.fillStyle = P_COLORS[ci];
+        ctx.shadowColor = P_COLORS[ci];
+        ctx.shadowBlur = 8;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, PLAYER_R, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.shadowBlur = 0;
+
+        // Inner
+        ctx.fillStyle = P_INNER[ci];
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, PLAYER_R * 0.5, 0, Math.PI * 2);
+        ctx.fill();
+
+        // Number
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${PLAYER_R * 0.7}px sans-serif`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(p.id, p.x, p.y + 1);
+
+        // Label
+        ctx.fillStyle = P_COLORS[ci];
+        ctx.globalAlpha = 0.7;
+        ctx.font = 'bold 10px sans-serif';
+        const role = p.hasBall ? 'OFF' : 'DEF';
+        ctx.fillText(`P${p.id} ${role}`, p.x, p.y - PLAYER_R - 8);
+        ctx.globalAlpha = 1;
+      }
+
+      // Ball
+      drawBall();
+
+      // Floating texts
+      for (const ft of floatingTexts) {
+        ctx.globalAlpha = Math.max(0, ft.life / ft.maxLife);
+        ctx.fillStyle = ft.color;
+        ctx.font = 'bold 22px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(ft.text, ft.x, ft.y);
+      }
+      ctx.globalAlpha = 1;
+
+      // Particles
+      for (const p of particles) {
+        ctx.globalAlpha = Math.max(0, p.life / p.maxLife);
+        ctx.fillStyle = p.color;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      ctx.globalAlpha = 1;
+
+      ctx.restore();
+    }
+
+    function drawCourt() {
+      // Floor
+      ctx.fillStyle = '#5c3317';
+      ctx.fillRect(0, 0, COURT_W, COURT_H);
+
+      // Floor boards
+      ctx.strokeStyle = 'rgba(0,0,0,0.08)';
+      ctx.lineWidth = 1;
+      for (let x = 0; x < COURT_W; x += 28) {
+        ctx.beginPath();
+        ctx.moveTo(x, 0);
+        ctx.lineTo(x, COURT_H);
+        ctx.stroke();
+      }
+
+      // Court lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.45)';
+      ctx.lineWidth = 2;
+
+      // Border
+      ctx.strokeRect(0, 0, COURT_W, COURT_H);
+
+      // Half-court line (left edge)
+      ctx.beginPath();
+      ctx.moveTo(0, 0);
+      ctx.lineTo(0, COURT_H);
+      ctx.stroke();
+
+      // Half-court arc
+      ctx.beginPath();
+      ctx.arc(0, COURT_H / 2, 55, -Math.PI / 2, Math.PI / 2);
+      ctx.stroke();
+
+      // Paint/key
+      const keyLeft = COURT_W - KEY_W;
+      const keyTop = (COURT_H - KEY_H) / 2;
+      ctx.fillStyle = 'rgba(200,50,50,0.12)';
+      ctx.fillRect(keyLeft, keyTop, KEY_W, KEY_H);
+      ctx.strokeRect(keyLeft, keyTop, KEY_W, KEY_H);
+
+      // Free-throw arc
+      ctx.beginPath();
+      ctx.arc(keyLeft, COURT_H / 2, FT_R, -Math.PI / 2, Math.PI / 2);
+      ctx.stroke();
+
+      // 3-point arc
+      ctx.beginPath();
+      // Calculate arc angles to stay within court
+      const arcStartAngle = Math.acos(Math.min(1, (COURT_W - HOOP_X) / THREE_PT_R));
+      ctx.arc(HOOP_X, HOOP_Y, THREE_PT_R, Math.PI - arcStartAngle, Math.PI + arcStartAngle);
+      ctx.stroke();
+
+      // Corner 3-point lines (straight lines along baseline)
+      const cornerY1 = HOOP_Y - Math.sin(arcStartAngle) * THREE_PT_R;
+      const cornerY2 = HOOP_Y + Math.sin(arcStartAngle) * THREE_PT_R;
+      ctx.beginPath();
+      ctx.moveTo(COURT_W, cornerY1);
+      ctx.lineTo(COURT_W, 0);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(COURT_W, cornerY2);
+      ctx.lineTo(COURT_W, COURT_H);
+      ctx.stroke();
+    }
+
+    function drawHoop() {
+      // Backboard
+      ctx.strokeStyle = '#ddd';
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.moveTo(HOOP_X + 10, HOOP_Y - BACKBOARD_H / 2);
+      ctx.lineTo(HOOP_X + 10, HOOP_Y + BACKBOARD_H / 2);
+      ctx.stroke();
+
+      // Rim
+      ctx.strokeStyle = '#e94560';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(HOOP_X, HOOP_Y, HOOP_R, 0, Math.PI * 2);
+      ctx.stroke();
+
+      // Net lines
+      ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+      ctx.lineWidth = 1;
+      for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(HOOP_X + i * 4, HOOP_Y + HOOP_R);
+        ctx.lineTo(HOOP_X + i * 3, HOOP_Y + HOOP_R + 12);
+        ctx.stroke();
+      }
+    }
+
+    function drawBall() {
+      let bx = ball.x;
+      let by = ball.y;
+      let sizeScale = 1;
+
+      if (ball.state === 'held' && ball.holder) {
+        // Dribble bounce effect
+        const bounce = Math.abs(Math.sin(ball.bounceTimer * 6)) * 0.2;
+        sizeScale = 1 - bounce * 0.3;
+      }
+
+      if (ball.state === 'shooting') {
+        by = ball.y - ball.z * 0.35;
+        sizeScale = 1 + ball.z / 250;
+      }
+
+      ctx.fillStyle = '#ff6600';
+      ctx.shadowColor = '#ff6600';
+      ctx.shadowBlur = 6;
+      ctx.beginPath();
+      ctx.arc(bx, by, BALL_R * sizeScale, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.shadowBlur = 0;
+
+      // Ball lines
+      ctx.strokeStyle = '#993300';
+      ctx.lineWidth = 0.8;
+      const r = BALL_R * sizeScale;
+      ctx.beginPath();
+      ctx.moveTo(bx - r * 0.65, by);
+      ctx.lineTo(bx + r * 0.65, by);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(bx, by - r * 0.65);
+      ctx.lineTo(bx, by + r * 0.65);
+      ctx.stroke();
+    }
+
+    // ─── Game Loop ───
+    function gameLoop(ts) {
+      if (!lastTs) lastTs = ts;
+      let dt = ts - lastTs; lastTs = ts;
+      if (dt > 50) dt = 50;
+      if (gameStarted) { update(dt); draw(); }
+      requestAnimationFrame(gameLoop);
+    }
+
+    gameStarted = false;
+    document.getElementById('start-btn').addEventListener('click', () => {
+      gameStarted = true;
+      startOverlay.classList.add('hidden');
+      hudEl.classList.remove('hidden');
+      init();
+    });
+
+    requestAnimationFrame(gameLoop);
+  </script>
+</body>
+</html>
