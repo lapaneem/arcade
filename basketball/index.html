@@ -497,9 +497,7 @@
         if (shakeTimer <= 0) { shakeDx = 0; shakeDy = 0; }
       }
 
-      if (!playing) return;
-
-      // Read inputs
+      // Read inputs (always, so actPressed stays in sync during pauses)
       const inputs = {};
       const actTaps = {};
       for (let pid = 1; pid <= 2; pid++) {
@@ -507,6 +505,8 @@
         actTaps[pid] = inputs[pid].act && !actPressed[pid];
         actPressed[pid] = inputs[pid].act;
       }
+
+      if (!playing) return;
 
       // Update players
       for (const p of players) {
