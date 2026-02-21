@@ -360,6 +360,31 @@
 
     init();
     requestAnimationFrame(gameLoop);
+
+    // ── ADMIN PANEL ──
+    let adminOpen = false;
+    let godMode = false;
+    const adminDiv = document.createElement('div');
+    adminDiv.id = 'admin-panel';
+    adminDiv.style.cssText = 'display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);border:2px solid #f0a500;border-radius:14px;padding:24px;z-index:9999;color:#fff;font-family:sans-serif;text-align:center;min-width:220px;';
+    adminDiv.innerHTML = '<div style="font-size:20px;font-weight:bold;color:#f0a500;margin-bottom:16px;">ADMIN</div>' +
+      '<button class="ab" onclick="godMode=!godMode;this.textContent=\'God Mode: \'+(godMode?\'ON\':\'OFF\')">God Mode: OFF</button>' +
+      '<button class="ab" onclick="for(let i=0;i<10;i++){snake.push({...snake[snake.length-1]});score++;scoreEl.textContent=\'Score: \'+score;}">+10 Score</button>' +
+      '<button class="ab" onclick="speed=200">Slow Speed</button>' +
+      '<button class="ab" onclick="speed=50">Fast Speed</button>' +
+      '<button class="ab" onclick="init()">Reset</button>';
+    const abStyle = document.createElement('style');
+    abStyle.textContent = '.ab{display:block;width:100%;margin:6px 0;padding:10px;border:1px solid #555;border-radius:8px;background:#1a1a2e;color:#fff;font-size:14px;cursor:pointer;transition:border-color 0.15s;}.ab:hover{border-color:#f0a500;}';
+    document.head.appendChild(abStyle);
+    document.body.appendChild(adminDiv);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '`') {
+        adminOpen = !adminOpen;
+        adminDiv.style.display = adminOpen ? 'block' : 'none';
+      }
+    });
+    const _origEndGame = endGame;
+    endGame = function() { if (godMode) return; _origEndGame(); };
   </script>
 </body>
 </html>

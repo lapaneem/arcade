@@ -1156,6 +1156,25 @@
     // ── Start ──
     phase = 'title';
     requestAnimationFrame(gameLoop);
+
+    // ── ADMIN PANEL ──
+    let admOpen5 = false;
+    const adm5 = document.createElement('div');
+    adm5.style.cssText = 'display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);border:2px solid #f0a500;border-radius:14px;padding:24px;z-index:9999;color:#fff;font-family:sans-serif;text-align:center;min-width:240px;';
+    adm5.innerHTML = '<div style="font-size:20px;font-weight:bold;color:#f0a500;margin-bottom:16px;">ADMIN</div>' +
+      '<button class="ab5" onclick="scores[0]+=5;updateUI()">P1 +5 Runs</button>' +
+      '<button class="ab5" onclick="scores[1]+=5;updateUI()">P2 +5 Runs</button>' +
+      '<button class="ab5" onclick="bases=[true,true,true];updateUI()">Load Bases</button>' +
+      '<button class="ab5" onclick="outs=0;balls=0;strikes=0;updateUI()">Reset Count</button>' +
+      '<button class="ab5" onclick="outs=2;updateUI()">Set 2 Outs</button>' +
+      '<button class="ab5" onclick="scores=[0,0];inning=1;halfInning=0;startHalf();phase=\'pitching\';updateUI()">Restart Game</button>';
+    const abSt5 = document.createElement('style');
+    abSt5.textContent = '.ab5{display:block;width:100%;margin:6px 0;padding:10px;border:1px solid #555;border-radius:8px;background:#1a1a2e;color:#fff;font-size:14px;cursor:pointer;transition:border-color 0.15s;}.ab5:hover{border-color:#f0a500;}';
+    document.head.appendChild(abSt5);
+    document.body.appendChild(adm5);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '`') { admOpen5=!admOpen5; adm5.style.display=admOpen5?'block':'none'; }
+    });
   </script>
 </body>
 </html>

@@ -103,11 +103,11 @@ resize();addEventListener('resize',resize);
 // ==================== CONSTANTS ====================
 const WORLD_W=2400,WORLD_H=1800;
 const WEAPONS=[
-  {name:'Laser',color:'#4fc3f7',dmg:10,rate:8,speed:12,spread:0,count:1,icon:'|'},
-  {name:'Spread',color:'#66bb6a',dmg:7,rate:10,speed:10,spread:0.3,count:3,icon:'W'},
-  {name:'Missile',color:'#ff8a65',dmg:20,rate:20,speed:7,spread:0,count:1,homing:true,icon:'M'},
-  {name:'Beam',color:'#e040fb',dmg:4,rate:2,speed:20,spread:0,count:1,pierce:true,size:3,icon:'='},
-  {name:'Plasma',color:'#ffd740',dmg:30,rate:25,speed:8,spread:0,count:1,explode:true,icon:'O'},
+  {name:'Laser',color:'#4fc3f7',dmg:14,rate:7,speed:13,spread:0,count:1,icon:'|'},
+  {name:'Spread',color:'#66bb6a',dmg:10,rate:9,speed:11,spread:0.3,count:3,icon:'W'},
+  {name:'Missile',color:'#ff8a65',dmg:28,rate:18,speed:8,spread:0,count:1,homing:true,icon:'M'},
+  {name:'Beam',color:'#e040fb',dmg:6,rate:2,speed:22,spread:0,count:1,pierce:true,size:3,icon:'='},
+  {name:'Plasma',color:'#ffd740',dmg:40,rate:22,speed:9,spread:0,count:1,explode:true,icon:'O'},
 ];
 const ABILITIES=[
   {name:'Nova Bomb',cd:600,icon:'N',color:'#ff5252',desc:'Massive explosion around ship'},
@@ -116,18 +116,18 @@ const ABILITIES=[
   {name:'Shield Burst',cd:480,icon:'S',color:'#00e5ff',desc:'Full shield restore + pulse'},
 ];
 const SHOP_ITEMS=[
-  {id:'wpn_spread',name:'Spread Shot',cost:50,icon:'W',desc:'3-way spread weapon',type:'weapon',wpnIdx:1},
-  {id:'wpn_missile',name:'Missiles',cost:100,icon:'M',desc:'Homing missiles',type:'weapon',wpnIdx:2},
-  {id:'wpn_beam',name:'Beam',cost:150,icon:'=',desc:'Piercing beam weapon',type:'weapon',wpnIdx:3},
-  {id:'wpn_plasma',name:'Plasma',cost:200,icon:'O',desc:'Explosive plasma shots',type:'weapon',wpnIdx:4},
-  {id:'ab_nova',name:'Nova Bomb',cost:60,icon:'N',desc:'Massive AoE blast',type:'ability',abIdx:0},
-  {id:'ab_time',name:'Time Warp',cost:100,icon:'T',desc:'Slow enemies 5s',type:'ability',abIdx:1},
-  {id:'ab_drone',name:'Drone',cost:120,icon:'D',desc:'Auto-attack drone 10s',type:'ability',abIdx:2},
-  {id:'ab_shield',name:'Shield Burst',cost:80,icon:'S',desc:'Restore shield',type:'ability',abIdx:3},
-  {id:'hp_up',name:'+30 Max HP',cost:40,icon:'+',desc:'Increase max HP',type:'stat',stat:'maxHp',val:30,repeatable:true},
-  {id:'shield_up',name:'+20 Max Shield',cost:50,icon:'O',desc:'Increase shield',type:'stat',stat:'maxShield',val:20,repeatable:true},
-  {id:'magnet',name:'Magnet',cost:80,icon:'M',desc:'Attract pickups',type:'passive',passive:'magnet'},
-  {id:'regen',name:'HP Regen',cost:100,icon:'R',desc:'Slowly regen HP',type:'passive',passive:'regen'},
+  {id:'wpn_spread',name:'Spread Shot',cost:30,icon:'W',desc:'3-way spread weapon',type:'weapon',wpnIdx:1},
+  {id:'wpn_missile',name:'Missiles',cost:60,icon:'M',desc:'Homing missiles',type:'weapon',wpnIdx:2},
+  {id:'wpn_beam',name:'Beam',cost:90,icon:'=',desc:'Piercing beam weapon',type:'weapon',wpnIdx:3},
+  {id:'wpn_plasma',name:'Plasma',cost:120,icon:'O',desc:'Explosive plasma shots',type:'weapon',wpnIdx:4},
+  {id:'ab_nova',name:'Nova Bomb',cost:35,icon:'N',desc:'Massive AoE blast',type:'ability',abIdx:0},
+  {id:'ab_time',name:'Time Warp',cost:60,icon:'T',desc:'Slow enemies 5s',type:'ability',abIdx:1},
+  {id:'ab_drone',name:'Drone',cost:70,icon:'D',desc:'Auto-attack drone 10s',type:'ability',abIdx:2},
+  {id:'ab_shield',name:'Shield Burst',cost:45,icon:'S',desc:'Restore shield',type:'ability',abIdx:3},
+  {id:'hp_up',name:'+30 Max HP',cost:25,icon:'+',desc:'Increase max HP',type:'stat',stat:'maxHp',val:30,repeatable:true},
+  {id:'shield_up',name:'+20 Max Shield',cost:30,icon:'O',desc:'Increase shield',type:'stat',stat:'maxShield',val:20,repeatable:true},
+  {id:'magnet',name:'Magnet',cost:45,icon:'M',desc:'Attract pickups',type:'passive',passive:'magnet'},
+  {id:'regen',name:'HP Regen',cost:55,icon:'R',desc:'Slowly regen HP',type:'passive',passive:'regen'},
 ];
 const STAT_NAMES=['Damage','Fire Rate','Speed','Shield','Luck'];
 const STAT_DESC=['+12% dmg/pt','+10% fire rate/pt','+8% speed/pt','+15 shield + regen/pt','+8% crit +10% gold/pt'];
@@ -192,10 +192,10 @@ function startGame(){
   state='playing';paused=false;
   player={
     x:WORLD_W/2,y:WORLD_H/2,vx:0,vy:0,r:16,
-    hp:100,maxHp:100,shield:50,maxShield:50,shieldRegen:0.03,
-    xp:0,xpNext:50,level:1,statPts:0,
+    hp:200,maxHp:200,shield:100,maxShield:100,shieldRegen:0.08,
+    xp:0,xpNext:35,level:1,statPts:0,
     stats:[0,0,0,0,0],// dmg,rate,speed,shield,luck
-    gold:0,score:0,
+    gold:25,score:0,
     weaponIdx:0,weapons:[true,false,false,false,false],
     abilities:[false,false,false,false],
     abilityCd:[0,0,0,0],
@@ -215,7 +215,7 @@ function startGame(){
 // ==================== WAVES ====================
 function nextWave(){
   wave++;waveTimer=0;waveEnemies=0;waveCleared=false;bossActive=false;boss=null;
-  let count=5+wave*2;
+  let count=3+wave*1.5|0;
   if(wave%5===0)count=Math.floor(count*0.6);// fewer enemies on boss waves
   spawnWaveEnemies(count);
   if(wave%5===0)spawnBoss();
@@ -241,12 +241,12 @@ function spawnEnemy(type){
   if(side===0){x=Math.random()*WORLD_W;y=-30}
   else if(side===1){x=-30;y=Math.random()*WORLD_H}
   else{x=WORLD_W+30;y=Math.random()*WORLD_H}
-  let scale=1+wave*0.08;
+  let scale=1+wave*0.05;
   let e={x,y,type,angle:0,fireTimer:0,flashTimer:0,alive:true};
-  if(type==='fighter'){e.hp=e.maxHp=15*scale;e.speed=3;e.r=12;e.color='#ff5252';e.xp=8;e.gold=3}
-  else if(type==='cruiser'){e.hp=e.maxHp=30*scale;e.speed=1.8;e.r=18;e.color='#ff8a65';e.xp=15;e.gold=6;e.strafeAngle=Math.random()*Math.PI*2}
-  else if(type==='tank'){e.hp=e.maxHp=80*scale;e.speed=1;e.r=24;e.color='#ce93d8';e.xp=25;e.gold=10}
-  else{e.hp=e.maxHp=20*scale;e.speed=1.5+Math.random();e.r=14+Math.random()*10;e.color='#9e9e9e';e.xp=5;e.gold=2;
+  if(type==='fighter'){e.hp=e.maxHp=12*scale;e.speed=2.4;e.r=12;e.color='#ff5252';e.xp=10;e.gold=5}
+  else if(type==='cruiser'){e.hp=e.maxHp=25*scale;e.speed=1.4;e.r=18;e.color='#ff8a65';e.xp=18;e.gold=8;e.strafeAngle=Math.random()*Math.PI*2}
+  else if(type==='tank'){e.hp=e.maxHp=60*scale;e.speed=0.8;e.r=24;e.color='#ce93d8';e.xp=30;e.gold=14}
+  else{e.hp=e.maxHp=15*scale;e.speed=1.2+Math.random();e.r=14+Math.random()*10;e.color='#9e9e9e';e.xp=6;e.gold=3;
     e.vx=(Math.random()-0.5)*2;e.vy=Math.random()*1.5+0.5}
   enemies.push(e);
 }
@@ -293,7 +293,7 @@ function updatePlayer(){
   let shieldMax=p.maxShield+p.stats[3]*15;
   p.shield=Math.min(shieldMax,p.shield+p.shieldRegen+p.stats[3]*0.008);
   // HP regen
-  if(p.passives.regen)p.hp=Math.min(p.maxHp,p.hp+0.02);
+  if(p.passives.regen)p.hp=Math.min(p.maxHp,p.hp+0.06);
   // Invulnerability
   if(p.invuln>0)p.invuln--;
   // Fire
@@ -413,16 +413,16 @@ function updateEnemies(){
       if(e.fireTimer<=0&&d<500){
         e.fireTimer=60;
         let a=Math.atan2(dy,dx);
-        eBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4,r:3,color:'#ff8a65',alive:true,dmg:8+wave});
+        eBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3.5,vy:Math.sin(a)*3.5,r:3,color:'#ff8a65',alive:true,dmg:6+wave*0.7});
       }
     } else if(e.type==='tank'){
       if(d>200){e.x+=dx/d*e.speed*speedMult;e.y+=dy/d*e.speed*speedMult}
       e.angle=Math.atan2(dy,dx);
       e.fireTimer-=speedMult;
       if(e.fireTimer<=0&&d<600){
-        e.fireTimer=90;
+        e.fireTimer=110;
         let a=Math.atan2(dy,dx);
-        eBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,r:5,color:'#ce93d8',alive:true,dmg:15+wave*2});
+        eBullets.push({x:e.x,y:e.y,vx:Math.cos(a)*2.5,vy:Math.sin(a)*2.5,r:5,color:'#ce93d8',alive:true,dmg:10+wave*1.5});
       }
     } else {// asteroid
       e.x+=e.vx*speedMult;e.y+=e.vy*speedMult;
@@ -439,7 +439,7 @@ function updateEnemies(){
     if(player.invuln<=0){
       let cd=Math.hypot(e.x-player.x,e.y-player.y);
       if(cd<e.r+player.r){
-        damagePlayer(15+wave*2);
+        damagePlayer(10+wave*1.5);
         e.alive=false;
         spawnExplosion(e.x,e.y,e.color,15);
       }
@@ -472,13 +472,13 @@ function updateBoss(){
     let sa=b.phaseTimer*0.15;
     for(let i=0;i<2;i++){
       let a=sa+i*Math.PI;
-      eBullets.push({x:b.x,y:b.y,vx:Math.cos(a)*3.5,vy:Math.sin(a)*3.5,r:4,color:b.color,alive:true,dmg:12+wave*2});
+      eBullets.push({x:b.x,y:b.y,vx:Math.cos(a)*3,vy:Math.sin(a)*3,r:4,color:b.color,alive:true,dmg:8+wave*1.5});
     }
   } else if(b.phase===1&&b.fireTimer<=0){// Aimed bursts
     b.fireTimer=40;
     let a=Math.atan2(dy,dx);
     for(let i=-2;i<=2;i++){
-      eBullets.push({x:b.x,y:b.y,vx:Math.cos(a+i*0.15)*5,vy:Math.sin(a+i*0.15)*5,r:4,color:b.color,alive:true,dmg:10+wave*2});
+      eBullets.push({x:b.x,y:b.y,vx:Math.cos(a+i*0.15)*4,vy:Math.sin(a+i*0.15)*4,r:4,color:b.color,alive:true,dmg:8+wave*1.5});
     }
   } else if(b.phase===2){// Spawn minions
     if(b.phaseTimer===1||b.phaseTimer===100||b.phaseTimer===200){
@@ -492,12 +492,12 @@ function updateBoss(){
     if(b.fireTimer<=0){
       b.fireTimer=20;
       let a=Math.atan2(dy,dx);
-      eBullets.push({x:b.x,y:b.y,vx:Math.cos(a)*4,vy:Math.sin(a)*4,r:5,color:b.color,alive:true,dmg:15+wave*2});
+      eBullets.push({x:b.x,y:b.y,vx:Math.cos(a)*3.5,vy:Math.sin(a)*3.5,r:5,color:b.color,alive:true,dmg:10+wave*1.5});
     }
   }
   // Collision with player
   if(player.invuln<=0&&Math.hypot(b.x-p.x,b.y-p.y)<b.r+p.r){
-    damagePlayer(25+wave*3);
+    damagePlayer(15+wave*2);
   }
 }
 
@@ -603,7 +603,7 @@ function damagePlayer(dmg){
     p.shield-=absorbed;dmg-=absorbed;
   }
   p.hp-=dmg;
-  p.invuln=30;
+  p.invuln=45;
   shakeMag=Math.max(shakeMag,8);
   spawnExplosion(p.x,p.y,'#ff5252',10);
   if(p.hp<=0)gameOver();
@@ -1073,6 +1073,30 @@ function drawLoop(){
 }
 drawLoop();
 loop();
+
+    // ── ADMIN PANEL ──
+    let admOpen6 = false;
+    let godMode6 = false;
+    const adm6 = document.createElement('div');
+    adm6.style.cssText = 'display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);border:2px solid #f0a500;border-radius:14px;padding:24px;z-index:9999;color:#fff;font-family:sans-serif;text-align:center;min-width:260px;max-height:80vh;overflow-y:auto;';
+    adm6.innerHTML = '<div style="font-size:20px;font-weight:bold;color:#f0a500;margin-bottom:16px;">ADMIN</div>' +
+      '<button class="ab6" onclick="godMode6=!godMode6;this.textContent=\'God Mode: \'+(godMode6?\'ON\':\'OFF\')">God Mode: OFF</button>' +
+      '<button class="ab6" onclick="if(player){player.gold+=500;}">+500 Gold</button>' +
+      '<button class="ab6" onclick="if(player){player.hp=player.maxHp;player.shield=player.maxShield+player.stats[3]*15;}">Full HP + Shield</button>' +
+      '<button class="ab6" onclick="if(player){for(let i=0;i<5;i++)player.weapons[i]=true;for(let i=0;i<4;i++)player.abilities[i]=true;player.passives.magnet=true;player.passives.regen=true;}">Unlock All</button>' +
+      '<button class="ab6" onclick="if(player){player.statPts+=10;}">+10 Stat Points</button>' +
+      '<button class="ab6" onclick="if(player){player.level+=5;player.statPts+=10;}">+5 Levels</button>' +
+      '<button class="ab6" onclick="enemies.length=0;eBullets.length=0;if(boss)boss.alive=false;">Kill All Enemies</button>' +
+      '<button class="ab6" onclick="score+=10000;">+10000 Score</button>';
+    const abSt6 = document.createElement('style');
+    abSt6.textContent = '.ab6{display:block;width:100%;margin:6px 0;padding:10px;border:1px solid #555;border-radius:8px;background:#1a1a2e;color:#fff;font-size:14px;cursor:pointer;transition:border-color 0.15s;}.ab6:hover{border-color:#f0a500;}';
+    document.head.appendChild(abSt6);
+    document.body.appendChild(adm6);
+    addEventListener('keydown', (e) => {
+      if (e.key === '`') { admOpen6=!admOpen6; adm6.style.display=admOpen6?'block':'none'; }
+    });
+    const _origDmgP6 = damagePlayer;
+    damagePlayer = function(dmg) { if (godMode6) return; _origDmgP6(dmg); };
 </script>
 </body>
 </html>

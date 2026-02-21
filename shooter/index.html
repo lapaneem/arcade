@@ -1350,7 +1350,36 @@
       init();
     });
 
-    requestAnimationFrame(gameLoop);
+
+    // ── ADMIN PANEL ──
+    let adminOpen2 = false;
+    let godMode2 = false;
+    const adm2 = document.createElement('div');
+    adm2.style.cssText = 'display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.92);border:2px solid #f0a500;border-radius:14px;padding:24px;z-index:9999;color:#fff;font-family:sans-serif;text-align:center;min-width:240px;';
+    adm2.innerHTML = '<div style="font-size:20px;font-weight:bold;color:#f0a500;margin-bottom:16px;">ADMIN</div>' +
+      '<button class="ab2" onclick="godMode2=!godMode2;this.textContent=\'God Mode: \'+(godMode2?\'ON\':\'OFF\')">God Mode: OFF</button>' +
+      '<button class="ab2" onclick="coins+=500;updateUI()">+500 Coins</button>' +
+      '<button class="ab2" onclick="wall.hp=wall.maxHp;updateUI()">Full Wall HP</button>' +
+      '<button class="ab2" onclick="players.forEach(p=>{p.hp=p.maxHp;p.alive=true});updateUI()">Full Player HP</button>' +
+      '<button class="ab2" onclick="enemies.length=0;updateUI()">Kill All Enemies</button>' +
+      '<button class="ab2" onclick="for(const k in upgradeLevels)upgradeLevels[k]=ALL_UPGRADES[k].max;rebuildTurrets();updateUI()">Max All Upgrades</button>';
+    const abSt2 = document.createElement('style');
+    abSt2.textContent = '.ab2{display:block;width:100%;margin:6px 0;padding:10px;border:1px solid #555;border-radius:8px;background:#1a1a2e;color:#fff;font-size:14px;cursor:pointer;transition:border-color 0.15s;}.ab2:hover{border-color:#f0a500;}';
+    document.head.appendChild(abSt2);
+    document.body.appendChild(adm2);
+    document.addEventListener('keydown', (e) => {
+      if (e.key === '`') { adminOpen2=!adminOpen2; adm2.style.display=adminOpen2?'block':'none'; }
+    });
+    // Patch update for god mode: keep wall and players at full HP
+    const _origUpdate = update;
+    update = function(dt) {
+      _origUpdate(dt);
+      if (godMode2) {
+        if (wall) wall.hp = wall.maxHp;
+        players.forEach(p => { p.hp = p.maxHp; p.alive = true; });
+      }
+    };
+
   </script>
 </body>
 </html>
