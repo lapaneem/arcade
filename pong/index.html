@@ -151,12 +151,61 @@
       backdrop-filter: blur(8px);
     }
     .back-btn:hover { background: rgba(30,30,60,0.9); color: #fff; }
+
+    /* Mobile Arrow Controls */
+    .mobile-controls { display: none; }
+    @media (hover: none) and (pointer: coarse) {
+      .mobile-controls { display: block; }
+    }
+    .arrow-group {
+      position: fixed;
+      z-index: 15;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      pointer-events: none;
+    }
+    .arrow-group.p1-arrows { bottom: 24px; left: 16px; }
+    .arrow-group.p2-arrows { bottom: 24px; right: 16px; }
+    .arrow-btn {
+      width: 60px;
+      height: 60px;
+      border-radius: 16px;
+      border: 2px solid rgba(255,255,255,0.15);
+      background: rgba(20,20,40,0.75);
+      color: #888;
+      font-size: 24px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+      touch-action: none;
+    }
+    .arrow-btn:active, .arrow-btn.pressed { background: rgba(60,60,100,0.8); color: #fff; border-color: rgba(255,255,255,0.3); }
+    .p1-arrows .arrow-btn { border-color: rgba(118,255,3,0.3); }
+    .p1-arrows .arrow-btn:active, .p1-arrows .arrow-btn.pressed { border-color: rgba(118,255,3,0.6); color: #76ff03; }
+    .p2-arrows .arrow-btn { border-color: rgba(255,82,82,0.3); }
+    .p2-arrows .arrow-btn:active, .p2-arrows .arrow-btn.pressed { border-color: rgba(255,82,82,0.6); color: #ff5252; }
   </style>
 </head>
 <body>
 
 <a href="../index.html" class="back-btn">&#8592;</a>
 <canvas id="game-canvas"></canvas>
+
+<!-- Mobile Arrow Controls -->
+<div class="mobile-controls">
+  <div class="arrow-group p1-arrows">
+    <div class="arrow-btn" data-player="0" data-dir="up">&#9650;</div>
+    <div class="arrow-btn" data-player="0" data-dir="down">&#9660;</div>
+  </div>
+  <div class="arrow-group p2-arrows">
+    <div class="arrow-btn" data-player="1" data-dir="up">&#9650;</div>
+    <div class="arrow-btn" data-player="1" data-dir="down">&#9660;</div>
+  </div>
+</div>
 
 <div class="overlay" id="start-screen">
   <h1>PONG</h1>
@@ -348,6 +397,21 @@ function handleTouchEnd(e) {
   for (const t of e.changedTouches) delete touches[t.identifier];
 }
 
+// Mobile arrow buttons
+const dpadState = { 0: {}, 1: {} };
+document.querySelectorAll('.arrow-btn').forEach(btn => {
+  const player = +btn.dataset.player;
+  const dir = btn.dataset.dir;
+  function press(e) { e.preventDefault(); dpadState[player][dir] = true; btn.classList.add('pressed'); }
+  function release(e) { e.preventDefault(); dpadState[player][dir] = false; btn.classList.remove('pressed'); }
+  btn.addEventListener('touchstart', press, { passive: false });
+  btn.addEventListener('touchend', release, { passive: false });
+  btn.addEventListener('touchcancel', release, { passive: false });
+  btn.addEventListener('mousedown', press);
+  btn.addEventListener('mouseup', release);
+  btn.addEventListener('mouseleave', release);
+});
+
 // Admin
 document.getElementById('adm-speed').addEventListener('input', e => { config.ballSpeed = +e.target.value; });
 document.getElementById('adm-paddle').addEventListener('input', e => {
@@ -369,12 +433,12 @@ function update() {
     return;
   }
 
-  // Paddle movement
+  // Paddle movement (keyboard + mobile d-pad)
   let p1move = 0, p2move = 0;
-  if (keys['w'] || keys['W']) p1move -= config.paddleSpeed;
-  if (keys['s'] || keys['S']) p1move += config.paddleSpeed;
-  if (keys['ArrowUp']) p2move -= config.paddleSpeed;
-  if (keys['ArrowDown']) p2move += config.paddleSpeed;
+  if (keys['w'] || keys['W'] || dpadState[0].up) p1move -= config.paddleSpeed;
+  if (keys['s'] || keys['S'] || dpadState[0].down) p1move += config.paddleSpeed;
+  if (keys['ArrowUp'] || dpadState[1].up) p2move -= config.paddleSpeed;
+  if (keys['ArrowDown'] || dpadState[1].down) p2move += config.paddleSpeed;
 
   // Touch
   for (const id in touches) {

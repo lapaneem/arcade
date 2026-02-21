@@ -179,6 +179,52 @@
       backdrop-filter: blur(8px);
     }
     .back-btn:hover { background: rgba(30,30,60,0.9); color: #fff; }
+
+    /* Mobile D-Pad Controls */
+    .mobile-controls { display: none; }
+    @media (hover: none) and (pointer: coarse) {
+      .mobile-controls { display: block; }
+    }
+    .dpad {
+      position: fixed;
+      z-index: 15;
+      pointer-events: none;
+    }
+    .dpad.p1-pad { bottom: 16px; left: 16px; }
+    .dpad.p2-pad { top: 16px; right: 16px; }
+    .dpad-btn {
+      position: absolute;
+      width: 52px;
+      height: 52px;
+      border-radius: 14px;
+      border: 2px solid rgba(255,255,255,0.15);
+      background: rgba(20,20,40,0.75);
+      color: #888;
+      font-size: 22px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      pointer-events: auto;
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+      touch-action: none;
+    }
+    .dpad-btn:active, .dpad-btn.pressed { background: rgba(60,60,100,0.8); color: #fff; border-color: rgba(255,255,255,0.3); }
+    .dpad.p1-pad .dpad-btn { border-color: rgba(66,165,245,0.3); }
+    .dpad.p1-pad .dpad-btn:active, .dpad.p1-pad .dpad-btn.pressed { border-color: rgba(66,165,245,0.6); color: #42a5f5; }
+    .dpad.p2-pad .dpad-btn { border-color: rgba(255,167,38,0.3); }
+    .dpad.p2-pad .dpad-btn:active, .dpad.p2-pad .dpad-btn.pressed { border-color: rgba(255,167,38,0.6); color: #ffa726; }
+    /* P1 layout (bottom-left) */
+    .dpad.p1-pad .d-up    { left: 56px; top: 0; }
+    .dpad.p1-pad .d-down  { left: 56px; top: 108px; }
+    .dpad.p1-pad .d-left  { left: 0; top: 54px; }
+    .dpad.p1-pad .d-right { left: 112px; top: 54px; }
+    /* P2 layout (top-right) */
+    .dpad.p2-pad .d-up    { right: 56px; top: 0; }
+    .dpad.p2-pad .d-down  { right: 56px; top: 108px; }
+    .dpad.p2-pad .d-left  { right: 112px; top: 54px; }
+    .dpad.p2-pad .d-right { right: 0; top: 54px; }
+    .dpad { width: 164px; height: 160px; }
   </style>
 </head>
 <body>
@@ -186,6 +232,22 @@
 <a href="../index.html" class="back-btn">&#8592;</a>
 
 <canvas id="game-canvas"></canvas>
+
+<!-- Mobile D-Pad Controls -->
+<div class="mobile-controls">
+  <div class="dpad p1-pad">
+    <div class="dpad-btn d-up" data-player="0" data-dir="up">&#9650;</div>
+    <div class="dpad-btn d-down" data-player="0" data-dir="down">&#9660;</div>
+    <div class="dpad-btn d-left" data-player="0" data-dir="left">&#9664;</div>
+    <div class="dpad-btn d-right" data-player="0" data-dir="right">&#9654;</div>
+  </div>
+  <div class="dpad p2-pad">
+    <div class="dpad-btn d-up" data-player="1" data-dir="up">&#9650;</div>
+    <div class="dpad-btn d-down" data-player="1" data-dir="down">&#9660;</div>
+    <div class="dpad-btn d-left" data-player="1" data-dir="left">&#9664;</div>
+    <div class="dpad-btn d-right" data-player="1" data-dir="right">&#9654;</div>
+  </div>
+</div>
 
 <!-- Start Screen -->
 <div class="overlay" id="start-screen">
@@ -394,6 +456,21 @@ function handleTouchEnd(e) {
   }
 }
 
+// ====== MOBILE D-PAD ======
+const dpadState = { 0: {}, 1: {} };
+document.querySelectorAll('.dpad-btn').forEach(btn => {
+  const player = +btn.dataset.player;
+  const dir = btn.dataset.dir;
+  function press(e) { e.preventDefault(); dpadState[player][dir] = true; btn.classList.add('pressed'); }
+  function release(e) { e.preventDefault(); dpadState[player][dir] = false; btn.classList.remove('pressed'); }
+  btn.addEventListener('touchstart', press, { passive: false });
+  btn.addEventListener('touchend', release, { passive: false });
+  btn.addEventListener('touchcancel', release, { passive: false });
+  btn.addEventListener('mousedown', press);
+  btn.addEventListener('mouseup', release);
+  btn.addEventListener('mouseleave', release);
+});
+
 // ====== ADMIN ======
 document.getElementById('adm-speed').addEventListener('input', e => { config.maxPuckSpeed = +e.target.value; });
 document.getElementById('adm-friction').addEventListener('input', e => { config.friction = +e.target.value / 1000; });
@@ -419,19 +496,19 @@ function update() {
 
   const speed = config.paddleMaxSpeed;
 
-  // P1 keyboard (WASD)
+  // P1 keyboard (WASD) + d-pad
   let p1dx = 0, p1dy = 0;
-  if (keys['w'] || keys['W']) p1dy -= speed;
-  if (keys['s'] || keys['S']) p1dy += speed;
-  if (keys['a'] || keys['A']) p1dx -= speed;
-  if (keys['d'] || keys['D']) p1dx += speed;
+  if (keys['w'] || keys['W'] || dpadState[0].up) p1dy -= speed;
+  if (keys['s'] || keys['S'] || dpadState[0].down) p1dy += speed;
+  if (keys['a'] || keys['A'] || dpadState[0].left) p1dx -= speed;
+  if (keys['d'] || keys['D'] || dpadState[0].right) p1dx += speed;
 
-  // P2 keyboard (Arrows)
+  // P2 keyboard (Arrows) + d-pad
   let p2dx = 0, p2dy = 0;
-  if (keys['ArrowUp']) p2dy -= speed;
-  if (keys['ArrowDown']) p2dy += speed;
-  if (keys['ArrowLeft']) p2dx -= speed;
-  if (keys['ArrowRight']) p2dx += speed;
+  if (keys['ArrowUp'] || dpadState[1].up) p2dy -= speed;
+  if (keys['ArrowDown'] || dpadState[1].down) p2dy += speed;
+  if (keys['ArrowLeft'] || dpadState[1].left) p2dx -= speed;
+  if (keys['ArrowRight'] || dpadState[1].right) p2dx += speed;
 
   // Touch input
   for (const id in touches) {
