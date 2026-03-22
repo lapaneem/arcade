@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="theme-color" content="#0a0a1a">
+  <title>Geometry Dash</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: #0a0a1a;
+      overflow: hidden;
+      touch-action: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    canvas { display: block; width: 100vw; height: 100vh; }
+
+    .overlay {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(5,5,15,0.92); z-index: 10; transition: opacity 0.3s;
+      overflow-y: auto; padding: 30px 16px;
+    }
+    .overlay.hidden { opacity: 0; pointer-events: none; }
+    .overlay h1 {
+      font-size: 44px; font-weight: 800;
+      background: linear-gradient(135deg, #4fc3f7, #e040fb);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 6px;
+    }
+    .overlay .subtitle { color: #667; font-size: 15px; margin-bottom: 20px; }
+    .overlay .controls-info { color: #556; font-size: 13px; line-height: 2; text-align: center; margin-bottom: 20px; }
+    .overlay .controls-info span { color: #4fc3f7; font-weight: 600; }
+
+    .btn {
+      padding: 12px 36px; border: none; border-radius: 30px; font-size: 17px; font-weight: 700;
+      cursor: pointer; background: linear-gradient(135deg, #4fc3f7, #e040fb); color: #000;
+      letter-spacing: 2px; text-transform: uppercase;
+      box-shadow: 0 0 30px rgba(79,195,247,0.3); transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(79,195,247,0.5); }
+    .btn:active { transform: scale(0.97); }
+    .btn-sm {
+      padding: 10px 24px; font-size: 14px; letter-spacing: 1px;
+    }
+    .btn-ghost {
+      background: rgba(255,255,255,0.08); color: #aaa; box-shadow: none;
+    }
+    .btn-ghost:hover { background: rgba(255,255,255,0.15); box-shadow: none; }
+
+    .score-text {
+      font-size: 52px; font-weight: 900;
+      background: linear-gradient(135deg, #4fc3f7, #e040fb);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 4px;
+    }
+    .best-text { font-size: 18px; color: #667; font-weight: 600; margin-bottom: 24px; }
+
+    .back-btn {
+      position: fixed; top: 12px; left: 12px; z-index: 20;
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(10,10,30,0.7);
+      color: #888; font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; text-decoration: none; transition: background 0.2s, color 0.2s;
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    .back-btn:hover { background: rgba(30,30,60,0.9); color: #fff; }
+
+    /* Level grid */
+    .section-title { color: #556; font-size: 12px; text-transform: uppercase; letter-spacing: 2px; margin: 16px 0 10px; }
+    .level-grid { display: flex; gap: 12px; flex-wrap: wrap; justify-content: center; max-width: 500px; margin-bottom: 12px; }
+    .level-card {
+      width: 100px; padding: 14px 8px; border-radius: 12px;
+      border: 2px solid rgba(255,255,255,0.1); background: rgba(20,20,40,0.8);
+      cursor: pointer; text-align: center; transition: transform 0.15s, border-color 0.2s;
+    }
+    .level-card:hover { transform: scale(1.06); }
+    .level-card .level-name { font-size: 12px; font-weight: 700; margin-bottom: 3px; }
+    .level-card .level-diff { font-size: 10px; color: #667; }
+    .level-card.locked { opacity: 0.35; pointer-events: none; }
+
+    /* Button row */
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 12px; }
+
+    /* Editor */
+    #editor-screen .toolbar {
+      display: flex; gap: 8px; align-items: center; flex-wrap: wrap; justify-content: center; margin-bottom: 12px;
+    }
+    .tool-btn {
+      padding: 8px 16px; border-radius: 8px; border: 2px solid rgba(255,255,255,0.15);
+      background: rgba(20,20,40,0.8); color: #aaa; font-size: 13px; font-weight: 600;
+      cursor: pointer; transition: all 0.15s;
+    }
+    .tool-btn.active { border-color: #4fc3f7; color: #4fc3f7; background: rgba(79,195,247,0.1); }
+    .tool-btn:hover { border-color: rgba(255,255,255,0.3); }
+    .editor-info { color: #556; font-size: 12px; text-align: center; margin-bottom: 10px; line-height: 1.6; }
+
+    /* Import modal */
+    #import-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 50;
+      display: none; align-items: center; justify-content: center;
+    }
+    #import-modal.show { display: flex; }
+    #import-modal .modal-box {
+      background: #12122a; border: 1px solid rgba(79,195,247,0.3); border-radius: 16px;
+      padding: 28px; max-width: 420px; width: 90%; text-align: center;
+    }
+    #import-modal h2 { color: #4fc3f7; font-size: 20px; margin-bottom: 12px; }
+    #import-modal textarea {
+      width: 100%; height: 100px; background: #0a0a1a; border: 1px solid rgba(79,195,247,0.2);
+      border-radius: 10px; color: #ccc; font-family: monospace; font-size: 12px;
+      padding: 10px; resize: none; margin-bottom: 12px;
+    }
+    #import-modal textarea:focus { outline: none; border-color: #4fc3f7; }
+
+    /* Share modal */
+    #share-modal {
+      position: fixed; inset: 0; background: rgba(0,0,0,0.85); z-index: 50;
+      display: none; align-items: center; justify-content: center;
+    }
+    #share-modal.show { display: flex; }
+    #share-modal .modal-box {
+      background: #12122a; border: 1px solid rgba(79,195,247,0.3); border-radius: 16px;
+      padding: 28px; max-width: 420px; width: 90%; text-align: center;
+    }
+    #share-modal h2 { color: #4fc3f7; font-size: 20px; margin-bottom: 6px; }
+    #share-modal .share-sub { color: #667; font-size: 13px; margin-bottom: 12px; }
+    #share-modal textarea {
+      width: 100%; height: 80px; background: #0a0a1a; border: 1px solid rgba(79,195,247,0.2);
+      border-radius: 10px; color: #4fc3f7; font-family: monospace; font-size: 11px;
+      padding: 10px; resize: none; margin-bottom: 12px;
+    }
+
+    /* Editor canvas area */
+    #editor-canvas-wrap {
+      position: relative; width: 90vw; max-width: 700px; height: 220px;
+      border: 2px solid rgba(79,195,247,0.25); border-radius: 12px; overflow: hidden;
+      margin-bottom: 12px; background: #0d1b2a;
+    }
+    #editor-canvas { width: 100%; height: 100%; display: block; }
+
+    /* Name input */
+    .name-input {
+      background: rgba(20,20,40,0.8); border: 1px solid rgba(79,195,247,0.25); border-radius: 8px;
+      color: #fff; font-size: 16px; font-weight: 600; padding: 8px 16px; text-align: center;
+      width: 220px; margin-bottom: 12px;
+    }
+    .name-input:focus { outline: none; border-color: #4fc3f7; }
+    .name-input::placeholder { color: #445; }
+  </style>
+</head>
+<body>
+
+<a href="../index.html" class="back-btn" id="back-btn">&#8592;</a>
+<canvas id="game-canvas"></canvas>
+
+<!-- ===== START SCREEN ===== -->
+<div class="overlay" id="start-screen">
+  <h1>Geometry Dash</h1>
+  <div class="controls-info">
+    <span>Space</span> / <span>Tap</span> to jump
+  </div>
+  <div class="section-title">Levels</div>
+  <div class="level-grid" id="level-grid"></div>
+  <div class="section-title">Community</div>
+  <div class="btn-row">
+    <button class="btn btn-sm" id="create-btn">Create Level</button>
+    <button class="btn btn-sm btn-ghost" id="import-btn">Import Code</button>
+  </div>
+  <div class="level-grid" id="custom-grid"></div>
+  <div style="margin-top:16px;">
+    <button class="btn" id="quick-start-btn">QUICK START</button>
+  </div>
+</div>
+
+<!-- ===== GAME OVER ===== -->
+<div class="overlay hidden" id="game-over">
+  <h1>GAME OVER</h1>
+  <div class="score-text" id="score-text">0</div>
+  <div class="best-text" id="best-text">Best: 0</div>
+  <div class="btn-row">
+    <button class="btn btn-sm" id="restart-btn">RETRY</button>
+    <button class="btn btn-sm btn-ghost" id="menu-btn">MENU</button>
+  </div>
+</div>
+
+<!-- ===== LEVEL EDITOR ===== -->
+<div class="overlay hidden" id="editor-screen">
+  <h1 style="font-size:32px;">Level Editor</h1>
+  <input class="name-input" id="level-name-input" placeholder="Level Name" maxlength="20">
+  <div class="editor-info">Click to place, right-click to erase. Scroll left/right to extend.</div>
+  <div class="toolbar" id="toolbar">
+    <button class="tool-btn active" data-tool="spike">Spike</button>
+    <button class="tool-btn" data-tool="spike2">Tall Spike</button>
+    <button class="tool-btn" data-tool="block">Block</button>
+    <button class="tool-btn" data-tool="block2">Tall Block</button>
+    <button class="tool-btn" data-tool="erase">Eraser</button>
+  </div>
+  <div id="editor-canvas-wrap">
+    <canvas id="editor-canvas"></canvas>
+  </div>
+  <div class="btn-row">
+    <button class="btn btn-sm" id="editor-test-btn">Test Play</button>
+    <button class="btn btn-sm" id="editor-save-btn" style="background:linear-gradient(135deg,#76ff03,#00e676);">Save</button>
+    <button class="btn btn-sm btn-ghost" id="editor-back-btn">Back</button>
+  </div>
+</div>
+
+<!-- ===== IMPORT MODAL ===== -->
+<div id="import-modal">
+  <div class="modal-box">
+    <h2>Import Level</h2>
+    <textarea id="import-code" placeholder="Paste a level code here..."></textarea>
+    <div class="btn-row">
+      <button class="btn btn-sm" id="import-go-btn">Import</button>
+      <button class="btn btn-sm btn-ghost" id="import-cancel-btn">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== SHARE MODAL ===== -->
+<div id="share-modal">
+  <div class="modal-box">
+    <h2>Share Level</h2>
+    <div class="share-sub">Copy this code and send it to a friend!</div>
+    <textarea id="share-code" readonly></textarea>
+    <div class="btn-row">
+      <button class="btn btn-sm" id="share-copy-btn">Copy</button>
+      <button class="btn btn-sm btn-ghost" id="share-close-btn">Close</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ====== SETUP ======
+const canvas = document.getElementById('game-canvas');
+const ctx = canvas.getContext('2d');
+let W, H, dpr = window.devicePixelRatio || 1;
+const GROUND_H = 60;
+const GRID = 30; // grid cell size = cube size
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// ====== LEVELS ======
+const LEVELS = [
+  { name:'Chill Wave', difficulty:'Easy', speed:5, gravity:0.7, jumpForce:-10, spawnGap:260,
+    bgColor:'#0a0a1a', groundColor:'#1a1a2e', lineColor:'#4fc3f7', spikeColor:'#4fc3f7',
+    cubeColors:['#4fc3f7','#00e5ff'], unlockScore:0 },
+  { name:'Neon Rush', difficulty:'Normal', speed:7, gravity:0.7, jumpForce:-10.5, spawnGap:210,
+    bgColor:'#0a0a1a', groundColor:'#1a0a2e', lineColor:'#e040fb', spikeColor:'#e040fb',
+    cubeColors:['#e040fb','#7c4dff'], unlockScore:50 },
+  { name:'Fire Storm', difficulty:'Hard', speed:8.5, gravity:0.75, jumpForce:-11, spawnGap:180,
+    bgColor:'#1a0a0a', groundColor:'#2e1a1a', lineColor:'#ff5252', spikeColor:'#ff5252',
+    cubeColors:['#ff5252','#ff9100'], unlockScore:150 },
+  { name:'Toxic Lab', difficulty:'Hard', speed:9, gravity:0.75, jumpForce:-11, spawnGap:170,
+    bgColor:'#0a1a0a', groundColor:'#1a2e1a', lineColor:'#76ff03', spikeColor:'#76ff03',
+    cubeColors:['#76ff03','#00e676'], unlockScore:300 },
+  { name:'Hyper Void', difficulty:'Insane', speed:11, gravity:0.8, jumpForce:-11.5, spawnGap:150,
+    bgColor:'#0a0a1a', groundColor:'#1a1a2e', lineColor:'#ffd600', spikeColor:'#ffd600',
+    cubeColors:['#ffd600','#ff6d00'], unlockScore:500 },
+  { name:'Impossible', difficulty:'Demon', speed:13, gravity:0.85, jumpForce:-12, spawnGap:130,
+    bgColor:'#1a0008', groundColor:'#2e0010', lineColor:'#ff1744', spikeColor:'#ff1744',
+    cubeColors:['#ff1744','#d50000'], unlockScore:800 },
+];
+
+let currentLevel = LEVELS[0];
+let customLevelData = null; // when playing a custom level, holds the obstacle array
+let isCustomLevel = false;
+
+const config = { speed:5, gravity:0.7, jumpForce:-10, cubeSize:GRID, spawnGap:260 };
+
+// ====== GAME STATE ======
+let gameRunning = false;
+let distance = 0, bestScore = 0;
+let obstacles = [], particles = [], bgShapes = [];
+let nextSpawnX = 0, screenShake = 0;
+let jumpHeld = false;
+const player = { x:0, y:0, vy:0, grounded:false, angle:0, dead:false };
+
+// ====== CUSTOM LEVELS STORAGE ======
+function getCustomLevels() {
+  try { return JSON.parse(localStorage.getItem('gd-custom-levels') || '[]'); } catch { return []; }
+}
+function saveCustomLevels(arr) { localStorage.setItem('gd-custom-levels', JSON.stringify(arr)); }
+
+// ====== LEVEL CODE ENCODE/DECODE ======
+function encodeLevel(levelObj) {
+  const json = JSON.stringify(levelObj);
+  return btoa(unescape(encodeURIComponent(json)));
+}
+function decodeLevel(code) {
+  try {
+    const json = decodeURIComponent(escape(atob(code.trim())));
+    const obj = JSON.parse(json);
+    if (!obj.name || !obj.obstacles || !Array.isArray(obj.obstacles)) return null;
+    return obj;
+  } catch { return null; }
+}
+
+// ====== BG SHAPES ======
+function initBgShapes() {
+  bgShapes = [];
+  for (let i = 0; i < 30; i++) {
+    bgShapes.push({
+      x: Math.random() * W * 3, y: Math.random() * H,
+      size: 10 + Math.random() * 40, type: Math.floor(Math.random() * 3),
+      speed: 0.1 + Math.random() * 0.4, alpha: 0.03 + Math.random() * 0.05,
+      color: ['#4fc3f7','#e040fb','#ff5252','#76ff03'][Math.floor(Math.random() * 4)],
+    });
+  }
+}
+initBgShapes();
+
+// ====== OBSTACLE GENERATION (procedural for built-in levels) ======
+function spawnObstacle(x) {
+  const groundY = H - GROUND_H;
+  const s = config.cubeSize;
+  const diff = Math.min(distance / 2000, 1);
+  const type = Math.random();
+  if (type < 0.5) {
+    obstacles.push({ type:'spike', x, y:groundY, w:s, h:s });
+  } else if (type < 0.75) {
+    obstacles.push({ type:'spike', x, y:groundY, w:s, h:s });
+    obstacles.push({ type:'spike', x:x+s+4, y:groundY, w:s, h:s });
+  } else if (type < 0.9) {
+    obstacles.push({ type:'spike', x, y:groundY, w:s, h:s + 10 + diff*15 });
+  } else {
+    obstacles.push({ type:'block', x, y:groundY, w:s*1.5, h:s + diff*20 });
+  }
+}
+
+function generateObstacles() {
+  if (isCustomLevel) return;
+  const lookAhead = distance + W + 400;
+  while (nextSpawnX < lookAhead) {
+    const diff = Math.min(distance / 3000, 1);
+    const gap = config.spawnGap - diff * 80 + Math.random() * 60;
+    nextSpawnX += Math.max(gap, 120);
+    spawnObstacle(nextSpawnX);
+  }
+}
+
+// ====== COLLISION ======
+function checkCollision() {
+  const s = config.cubeSize, px = player.x, py = player.y, shrink = 5;
+  const pL = px+shrink, pR = px+s-shrink, pT = py+shrink, pB = py+s-shrink;
+  for (const ob of obstacles) {
+    const ox = ob.x - distance;
+    if (ox > W || ox + ob.w < 0) continue;
+    if (ob.type === 'spike') {
+      const sL = ox + ob.w*0.25, sR = ox + ob.w*0.75, sT = ob.y - ob.h, sB = ob.y;
+      if (pR > sL && pL < sR && pB > sT && pT < sB) return true;
+    } else if (ob.type === 'block') {
+      const bL = ox, bR = ox+ob.w, bT = ob.y-ob.h, bB = ob.y;
+      if (pR > bL && pL < bR && pB > bT && pT < bB) {
+        if (player.vy >= 0 && py+s-shrink <= bT + player.vy + 4) {
+          player.y = bT - s; player.vy = 0; player.grounded = true; return false;
+        }
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+// ====== PARTICLES ======
+function spawnDeathParticles() {
+  const cx = player.x + config.cubeSize/2, cy = player.y + config.cubeSize/2;
+  for (let i = 0; i < 20; i++) {
+    const a = Math.random()*Math.PI*2, sp = 2+Math.random()*6;
+    particles.push({ x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-3,
+      life:30+Math.random()*30, maxLife:30+Math.random()*30,
+      color:[currentLevel.cubeColors[0], currentLevel.cubeColors[1], currentLevel.spikeColor][Math.floor(Math.random()*3)],
+      r:2+Math.random()*5 });
+  }
+}
+function spawnRunParticles() {
+  if (Math.random() > 0.3) return;
+  const s = config.cubeSize;
+  particles.push({ x:player.x+Math.random()*4, y:player.y+s, vx:-1-Math.random()*2, vy:-Math.random()*1.5,
+    life:10+Math.random()*10, maxLife:10+Math.random()*10, color:currentLevel.cubeColors[0], r:1+Math.random()*2 });
+}
+
+// ====== GAME CONTROL ======
+function applyLevel(lvl) {
+  currentLevel = lvl;
+  config.speed = lvl.speed; config.gravity = lvl.gravity;
+  config.jumpForce = lvl.jumpForce; config.spawnGap = lvl.spawnGap || 220;
+}
+
+function selectLevel(idx) { isCustomLevel = false; customLevelData = null; applyLevel(LEVELS[idx]); startGame(); }
+
+function playCustomLevel(lvlObj) {
+  isCustomLevel = true;
+  const theme = LEVELS[0]; // use default theme
+  const merged = { ...theme, name:lvlObj.name, speed:lvlObj.speed||6, gravity:lvlObj.gravity||0.7,
+    jumpForce:lvlObj.jumpForce||-10, lineColor:lvlObj.color||'#4fc3f7',
+    spikeColor:lvlObj.color||'#4fc3f7', cubeColors:[lvlObj.color||'#4fc3f7', lvlObj.color2||'#00e5ff'] };
+  applyLevel(merged);
+  customLevelData = lvlObj.obstacles;
+  startGame();
+}
+
+function startGame() {
+  distance = 0; obstacles = []; particles = []; nextSpawnX = W * 0.6;
+  screenShake = 0; jumpHeld = false;
+  player.x = W * 0.15; player.y = H - GROUND_H - config.cubeSize;
+  player.vy = 0; player.grounded = true; player.angle = 0; player.dead = false;
+  gameRunning = true;
+  hideAll();
+  initBgShapes();
+  if (isCustomLevel && customLevelData) {
+    const groundY = H - GROUND_H;
+    const startX = W * 0.5;
+    obstacles = customLevelData.map(ob => ({
+      type: ob.t, x: startX + ob.x * GRID, y: groundY, w: ob.w * GRID, h: ob.h * GRID
+    }));
+  } else {
+    generateObstacles();
+  }
+}
+
+function hideAll() {
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('game-over').classList.add('hidden');
+  document.getElementById('editor-screen').classList.add('hidden');
+}
+
+function showMenu() {
+  gameRunning = false; player.dead = false;
+  hideAll();
+  document.getElementById('start-screen').classList.remove('hidden');
+  buildLevelGrid(); buildCustomGrid();
+}
+
+function die() {
+  player.dead = true; gameRunning = false; screenShake = 12;
+  spawnDeathParticles();
+  const score = Math.floor(distance / 10);
+  const key = isCustomLevel ? 'gd-best-custom-' + currentLevel.name : 'gd-best-' + LEVELS.indexOf(currentLevel);
+  bestScore = +localStorage.getItem(key) || 0;
+  if (score > bestScore) { bestScore = score; localStorage.setItem(key, bestScore); }
+  setTimeout(() => {
+    document.getElementById('score-text').textContent = score;
+    document.getElementById('best-text').textContent = 'Best: ' + bestScore;
+    document.getElementById('game-over').classList.remove('hidden');
+  }, 600);
+}
+
+function doJump() {
+  if (!gameRunning) return;
+  if (player.grounded) { player.vy = config.jumpForce; player.grounded = false; }
+}
+
+// ====== INPUT ======
+document.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); jumpHeld = true; doJump(); }
+});
+document.addEventListener('keyup', e => {
+  if (e.key === ' ' || e.key === 'ArrowUp') jumpHeld = false;
+});
+canvas.addEventListener('mousedown', () => { jumpHeld = true; doJump(); });
+canvas.addEventListener('mouseup', () => { jumpHeld = false; });
+canvas.addEventListener('touchstart', e => { e.preventDefault(); jumpHeld = true; doJump(); }, { passive:false });
+canvas.addEventListener('touchend', e => { e.preventDefault(); jumpHeld = false; }, { passive:false });
+
+// ====== BUTTONS ======
+document.getElementById('restart-btn').addEventListener('click', startGame);
+document.getElementById('menu-btn').addEventListener('click', showMenu);
+document.getElementById('create-btn').addEventListener('click', openEditor);
+document.getElementById('import-btn').addEventListener('click', () => {
+  document.getElementById('import-code').value = '';
+  document.getElementById('import-modal').classList.add('show');
+});
+document.getElementById('import-cancel-btn').addEventListener('click', () => {
+  document.getElementById('import-modal').classList.remove('show');
+});
+document.getElementById('import-go-btn').addEventListener('click', () => {
+  const code = document.getElementById('import-code').value;
+  const lvl = decodeLevel(code);
+  if (!lvl) { alert('Invalid level code!'); return; }
+  // Save to custom levels
+  const customs = getCustomLevels();
+  if (!customs.find(c => c.name === lvl.name)) { customs.push(lvl); saveCustomLevels(customs); }
+  document.getElementById('import-modal').classList.remove('show');
+  playCustomLevel(lvl);
+});
+document.getElementById('share-copy-btn').addEventListener('click', () => {
+  const ta = document.getElementById('share-code');
+  ta.select(); document.execCommand('copy');
+  document.getElementById('share-copy-btn').textContent = 'Copied!';
+  setTimeout(() => { document.getElementById('share-copy-btn').textContent = 'Copy'; }, 1500);
+});
+document.getElementById('share-close-btn').addEventListener('click', () => {
+  document.getElementById('share-modal').classList.remove('show');
+});
+
+// ====== LEVEL GRIDS ======
+function buildLevelGrid() {
+  const grid = document.getElementById('level-grid');
+  grid.innerHTML = '';
+  const totalBest = LEVELS.reduce((sum, l, i) => sum + (+localStorage.getItem('gd-best-' + i) || 0), 0);
+  LEVELS.forEach((level, i) => {
+    const card = document.createElement('div');
+    const unlocked = totalBest >= level.unlockScore || i === 0;
+    card.className = 'level-card' + (unlocked ? '' : ' locked');
+    card.style.borderColor = level.lineColor;
+    if (unlocked) card.style.boxShadow = '0 0 15px ' + level.lineColor + '33';
+    card.innerHTML = unlocked
+      ? `<div class="level-name" style="color:${level.lineColor}">${level.name}</div><div class="level-diff">${level.difficulty}</div>`
+      : `<div style="font-size:16px;margin-bottom:2px;">&#128274;</div><div class="level-name" style="color:#555">${level.name}</div><div class="level-diff">${level.unlockScore} pts</div>`;
+    if (unlocked) card.addEventListener('click', () => selectLevel(i));
+    grid.appendChild(card);
+  });
+}
+
+function buildCustomGrid() {
+  const grid = document.getElementById('custom-grid');
+  grid.innerHTML = '';
+  const customs = getCustomLevels();
+  if (customs.length === 0) {
+    grid.innerHTML = '<div style="color:#445;font-size:12px;">No custom levels yet</div>';
+    return;
+  }
+  customs.forEach((lvl, i) => {
+    const card = document.createElement('div');
+    card.className = 'level-card';
+    const c = lvl.color || '#4fc3f7';
+    card.style.borderColor = c;
+    card.style.boxShadow = '0 0 15px ' + c + '33';
+    card.innerHTML = `<div class="level-name" style="color:${c}">${lvl.name}</div>
+      <div class="level-diff">${lvl.obstacles.length} objects</div>
+      <div style="display:flex;gap:4px;justify-content:center;margin-top:6px;">
+        <span class="tool-btn" style="padding:3px 8px;font-size:10px;" data-action="play">Play</span>
+        <span class="tool-btn" style="padding:3px 8px;font-size:10px;" data-action="share">Share</span>
+        <span class="tool-btn" style="padding:3px 8px;font-size:10px;color:#f55;" data-action="delete">X</span>
+      </div>`;
+    card.querySelector('[data-action="play"]').addEventListener('click', e => { e.stopPropagation(); playCustomLevel(lvl); });
+    card.querySelector('[data-action="share"]').addEventListener('click', e => {
+      e.stopPropagation();
+      document.getElementById('share-code').value = encodeLevel(lvl);
+      document.getElementById('share-modal').classList.add('show');
+    });
+    card.querySelector('[data-action="delete"]').addEventListener('click', e => {
+      e.stopPropagation();
+      const c2 = getCustomLevels(); c2.splice(i, 1); saveCustomLevels(c2); buildCustomGrid();
+    });
+    grid.appendChild(card);
+  });
+}
+
+try { buildLevelGrid(); } catch(e) { console.error('Level grid error:', e); }
+try { buildCustomGrid(); } catch(e) { console.error('Custom grid error:', e); }
+
+document.getElementById('quick-start-btn').addEventListener('click', () => { selectLevel(0); });
+
+// ====== LEVEL EDITOR ======
+const editorCanvas = document.getElementById('editor-canvas');
+const ectx = editorCanvas.getContext('2d');
+let editorObstacles = [];
+let editorTool = 'spike';
+let editorScrollX = 0;
+let editorDragging = false;
+
+const EDITOR_ROWS = 6;
+const EDITOR_CELL = 30;
+
+function openEditor() {
+  editorObstacles = [];
+  editorScrollX = 0;
+  editorTool = 'spike';
+  document.getElementById('level-name-input').value = '';
+  hideAll();
+  document.getElementById('editor-screen').classList.remove('hidden');
+  resizeEditorCanvas();
+  drawEditor();
+  // Reset active tool button
+  document.querySelectorAll('#toolbar .tool-btn').forEach(b => b.classList.remove('active'));
+  document.querySelector('#toolbar .tool-btn[data-tool="spike"]').classList.add('active');
+}
+
+function resizeEditorCanvas() {
+  const wrap = document.getElementById('editor-canvas-wrap');
+  const w = wrap.clientWidth, h = wrap.clientHeight;
+  editorCanvas.width = w * dpr; editorCanvas.height = h * dpr;
+  editorCanvas.style.width = w + 'px'; editorCanvas.style.height = h + 'px';
+  ectx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+
+function drawEditor() {
+  const w = editorCanvas.width / dpr, h = editorCanvas.height / dpr;
+  ectx.clearRect(0, 0, w, h);
+  ectx.fillStyle = '#0d1b2a';
+  ectx.fillRect(0, 0, w, h);
+
+  const groundY = h - 20;
+
+  // Grid
+  ectx.strokeStyle = 'rgba(79,195,247,0.1)';
+  ectx.lineWidth = 1;
+  const offX = -editorScrollX % EDITOR_CELL;
+  for (let x = offX; x < w; x += EDITOR_CELL) {
+    ectx.beginPath(); ectx.moveTo(x, 0); ectx.lineTo(x, h); ectx.stroke();
+  }
+  for (let y = groundY; y > 0; y -= EDITOR_CELL) {
+    ectx.beginPath(); ectx.moveTo(0, y); ectx.lineTo(w, y); ectx.stroke();
+  }
+
+  // Ground line
+  ectx.strokeStyle = '#4fc3f7';
+  ectx.lineWidth = 2;
+  ectx.beginPath(); ectx.moveTo(0, groundY); ectx.lineTo(w, groundY); ectx.stroke();
+
+  // Player start indicator
+  const startX = 50 - editorScrollX;
+  ectx.fillStyle = 'rgba(79,195,247,0.3)';
+  ectx.fillRect(startX, groundY - EDITOR_CELL, EDITOR_CELL, EDITOR_CELL);
+  ectx.strokeStyle = '#4fc3f7';
+  ectx.strokeRect(startX, groundY - EDITOR_CELL, EDITOR_CELL, EDITOR_CELL);
+  ectx.fillStyle = '#4fc3f7';
+  ectx.font = '9px sans-serif';
+  ectx.textAlign = 'center';
+  ectx.fillText('START', startX + EDITOR_CELL/2, groundY - EDITOR_CELL - 4);
+
+  // Draw obstacles
+  for (const ob of editorObstacles) {
+    const ox = ob.x * EDITOR_CELL - editorScrollX;
+    const oy = groundY - ob.h * EDITOR_CELL;
+    if (ox > w + 50 || ox + ob.w * EDITOR_CELL < -50) continue;
+
+    if (ob.t === 'spike') {
+      ectx.fillStyle = '#e040fb';
+      ectx.beginPath();
+      ectx.moveTo(ox + ob.w * EDITOR_CELL / 2, oy);
+      ectx.lineTo(ox + ob.w * EDITOR_CELL, groundY);
+      ectx.lineTo(ox, groundY);
+      ectx.closePath();
+      ectx.fill();
+      ectx.strokeStyle = '#e040fb99';
+      ectx.lineWidth = 1;
+      ectx.stroke();
+    } else {
+      ectx.fillStyle = '#1e88e5';
+      ectx.fillRect(ox, oy, ob.w * EDITOR_CELL, ob.h * EDITOR_CELL);
+      ectx.strokeStyle = '#1e88e599';
+      ectx.lineWidth = 1;
+      ectx.strokeRect(ox, oy, ob.w * EDITOR_CELL, ob.h * EDITOR_CELL);
+    }
+  }
+
+  // Scroll indicator
+  ectx.fillStyle = '#4fc3f755';
+  ectx.font = '10px sans-serif';
+  ectx.textAlign = 'right';
+  ectx.fillText('Scroll: ' + Math.floor(editorScrollX / EDITOR_CELL), w - 8, 14);
+}
+
+// Tool definitions: { type, w (cells), h (cells) }
+const TOOLS = {
+  spike:  { t:'spike', w:1, h:1 },
+  spike2: { t:'spike', w:1, h:2 },
+  block:  { t:'block', w:1, h:1 },
+  block2: { t:'block', w:1, h:2 },
+  erase:  null,
+};
+
+// Toolbar clicks
+document.querySelectorAll('#toolbar .tool-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    editorTool = btn.dataset.tool;
+    document.querySelectorAll('#toolbar .tool-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+});
+
+// Editor canvas interaction
+function editorCanvasPos(e) {
+  const rect = editorCanvas.getBoundingClientRect();
+  const cx = (e.clientX || e.touches[0].clientX) - rect.left;
+  const cy = (e.clientY || e.touches[0].clientY) - rect.top;
+  return { cx, cy };
+}
+
+function editorPlace(e, erase) {
+  const { cx, cy } = editorCanvasPos(e);
+  const h = editorCanvas.height / dpr;
+  const groundY = h - 20;
+  const gridX = Math.floor((cx + editorScrollX) / EDITOR_CELL);
+  const gridRow = Math.floor((groundY - cy) / EDITOR_CELL);
+  if (gridRow < 0 || gridX < 0) return;
+
+  if (erase || editorTool === 'erase') {
+    editorObstacles = editorObstacles.filter(ob => {
+      const obRight = ob.x + ob.w;
+      const obTop = ob.h;
+      return !(gridX >= ob.x && gridX < obRight && gridRow < obTop);
+    });
+  } else {
+    const tool = TOOLS[editorTool];
+    if (!tool) return;
+    // Don't place on top of existing
+    const exists = editorObstacles.find(ob => ob.x === gridX);
+    if (!exists) {
+      editorObstacles.push({ t:tool.t, x:gridX, w:tool.w, h:tool.h });
+    }
+  }
+  drawEditor();
+}
+
+editorCanvas.addEventListener('mousedown', e => {
+  e.preventDefault();
+  editorPlace(e, e.button === 2);
+  editorDragging = true;
+});
+editorCanvas.addEventListener('mousemove', e => {
+  if (editorDragging) editorPlace(e, e.button === 2);
+});
+editorCanvas.addEventListener('mouseup', () => { editorDragging = false; });
+editorCanvas.addEventListener('contextmenu', e => e.preventDefault());
+
+// Scroll editor with mouse wheel
+editorCanvas.addEventListener('wheel', e => {
+  e.preventDefault();
+  editorScrollX = Math.max(0, editorScrollX + e.deltaY * 0.5);
+  drawEditor();
+}, { passive: false });
+
+// Touch scroll
+let editorTouchStartX = 0, editorTouchScrollStart = 0;
+editorCanvas.addEventListener('touchstart', e => {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    editorTouchStartX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    editorTouchScrollStart = editorScrollX;
+  } else {
+    editorPlace(e, false);
+  }
+}, { passive: false });
+editorCanvas.addEventListener('touchmove', e => {
+  e.preventDefault();
+  if (e.touches.length === 2) {
+    const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+    editorScrollX = Math.max(0, editorTouchScrollStart - (cx - editorTouchStartX));
+    drawEditor();
+  }
+}, { passive: false });
+
+// Editor buttons
+document.getElementById('editor-back-btn').addEventListener('click', showMenu);
+document.getElementById('editor-test-btn').addEventListener('click', () => {
+  const name = document.getElementById('level-name-input').value.trim() || 'Test Level';
+  const lvl = { name, obstacles: editorObstacles, speed:6, gravity:0.7, jumpForce:-10, color:'#4fc3f7' };
+  playCustomLevel(lvl);
+});
+document.getElementById('editor-save-btn').addEventListener('click', () => {
+  const name = document.getElementById('level-name-input').value.trim();
+  if (!name) { alert('Give your level a name!'); return; }
+  if (editorObstacles.length === 0) { alert('Place some obstacles first!'); return; }
+  const lvl = { name, obstacles: [...editorObstacles], speed:6, gravity:0.7, jumpForce:-10, color:'#4fc3f7' };
+  const customs = getCustomLevels();
+  const existing = customs.findIndex(c => c.name === name);
+  if (existing >= 0) customs[existing] = lvl; else customs.push(lvl);
+  saveCustomLevels(customs);
+  // Show share modal
+  document.getElementById('share-code').value = encodeLevel(lvl);
+  document.getElementById('share-modal').classList.add('show');
+  showMenu();
+});
+
+// ====== UPDATE ======
+function update() {
+  if (!gameRunning) return;
+  const groundY = H - GROUND_H, s = config.cubeSize;
+  distance += config.speed;
+  player.vy += config.gravity;
+  player.y += player.vy;
+  if (player.y + s >= groundY) { player.y = groundY - s; player.vy = 0; player.grounded = true; }
+  if (player.grounded && jumpHeld) doJump();
+
+  if (!player.grounded) {
+    player.angle += config.speed * 0.06;
+  } else {
+    const target = Math.round(player.angle / (Math.PI/2)) * (Math.PI/2);
+    player.angle += (target - player.angle) * 0.3;
+  }
+
+  if (checkCollision()) { die(); return; }
+
+  // Custom level: check if passed all obstacles (win!)
+  if (isCustomLevel && customLevelData) {
+    const lastOb = obstacles.reduce((max, ob) => Math.max(max, ob.x + ob.w), 0);
+    if (distance > lastOb + W) {
+      // Beat the level!
+      const score = Math.floor(distance / 10);
+      const key = 'gd-best-custom-' + currentLevel.name;
+      bestScore = +localStorage.getItem(key) || 0;
+      if (score > bestScore) { bestScore = score; localStorage.setItem(key, bestScore); }
+      gameRunning = false;
+      setTimeout(() => {
+        document.getElementById('score-text').textContent = score + ' - CLEAR!';
+        document.getElementById('best-text').textContent = 'Best: ' + bestScore;
+        document.getElementById('game-over').querySelector('h1').textContent = 'LEVEL CLEAR!';
+        document.getElementById('game-over').classList.remove('hidden');
+      }, 300);
+      return;
+    }
+  }
+
+  generateObstacles();
+  if (!isCustomLevel) obstacles = obstacles.filter(ob => ob.x - distance > -200);
+
+  if (player.grounded) spawnRunParticles();
+  particles = particles.filter(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.vx *= 0.98; p.life--; return p.life > 0;
+  });
+  if (screenShake > 0) screenShake--;
+}
+
+// ====== DRAW ======
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  if (screenShake > 0) { ctx.save(); ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake); }
+
+  ctx.fillStyle = currentLevel.bgColor;
+  ctx.fillRect(0, 0, W, H);
+
+  // BG shapes
+  for (const s of bgShapes) {
+    const sx = ((s.x - distance * s.speed) % (W + 100)) - 50;
+    ctx.globalAlpha = s.alpha; ctx.fillStyle = s.color;
+    if (s.type === 0) { ctx.beginPath(); ctx.arc(sx, s.y, s.size/2, 0, Math.PI*2); ctx.fill(); }
+    else if (s.type === 1) { ctx.fillRect(sx-s.size/2, s.y-s.size/2, s.size, s.size); }
+    else { ctx.beginPath(); ctx.moveTo(sx, s.y-s.size/2); ctx.lineTo(sx+s.size/2, s.y+s.size/2); ctx.lineTo(sx-s.size/2, s.y+s.size/2); ctx.closePath(); ctx.fill(); }
+    ctx.globalAlpha = 1;
+  }
+
+  const groundY = H - GROUND_H;
+  ctx.fillStyle = currentLevel.groundColor; ctx.fillRect(0, groundY, W, GROUND_H);
+  ctx.strokeStyle = currentLevel.lineColor; ctx.lineWidth = 2;
+  ctx.shadowColor = currentLevel.lineColor; ctx.shadowBlur = 8;
+  ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke(); ctx.shadowBlur = 0;
+
+  // Grid
+  ctx.strokeStyle = currentLevel.lineColor + '14'; ctx.lineWidth = 1;
+  const gs = 40, go = -(distance * config.speed * 0.5) % gs;
+  for (let x = go; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x, H); ctx.stroke(); }
+  for (let y = groundY + gs; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+
+  // Obstacles
+  for (const ob of obstacles) {
+    const ox = ob.x - distance;
+    if (ox > W + 50 || ox + ob.w < -50) continue;
+    if (ob.type === 'spike') {
+      ctx.fillStyle = currentLevel.spikeColor; ctx.shadowColor = currentLevel.spikeColor; ctx.shadowBlur = 10;
+      ctx.beginPath(); ctx.moveTo(ox+ob.w/2, ob.y-ob.h); ctx.lineTo(ox+ob.w, ob.y); ctx.lineTo(ox, ob.y); ctx.closePath(); ctx.fill();
+      ctx.shadowBlur = 0; ctx.strokeStyle = currentLevel.spikeColor+'99'; ctx.lineWidth = 1.5; ctx.stroke();
+    } else {
+      ctx.fillStyle = '#1e88e5'; ctx.shadowColor = '#1e88e5'; ctx.shadowBlur = 8;
+      ctx.fillRect(ox, ob.y-ob.h, ob.w, ob.h); ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(30,136,229,0.6)'; ctx.lineWidth = 1.5; ctx.strokeRect(ox, ob.y-ob.h, ob.w, ob.h);
+    }
+  }
+
+  // Player
+  if (!player.dead) {
+    const s = config.cubeSize, cx = player.x+s/2, cy = player.y+s/2;
+    ctx.save(); ctx.translate(cx, cy); ctx.rotate(player.angle);
+    ctx.shadowColor = currentLevel.cubeColors[0]; ctx.shadowBlur = 15;
+    const grad = ctx.createLinearGradient(-s/2,-s/2,s/2,s/2);
+    grad.addColorStop(0, currentLevel.cubeColors[0]); grad.addColorStop(1, currentLevel.cubeColors[1]);
+    ctx.fillStyle = grad; ctx.fillRect(-s/2,-s/2,s,s); ctx.shadowBlur = 0;
+    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2; ctx.strokeRect(-s/2,-s/2,s,s);
+    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.strokeRect(-s/4,-s/4,s/2,s/2);
+    ctx.restore();
+  }
+
+  // Particles
+  for (const p of particles) {
+    ctx.globalAlpha = p.life/p.maxLife; ctx.fillStyle = p.color;
+    ctx.beginPath(); ctx.arc(p.x, p.y, p.r*(p.life/p.maxLife), 0, Math.PI*2); ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // HUD
+  if (gameRunning || player.dead) {
+    const score = Math.floor(distance / 10);
+    ctx.fillStyle = currentLevel.lineColor + 'cc';
+    ctx.font = 'bold 24px -apple-system, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.fillText(score, W-20, 16);
+    ctx.fillStyle = currentLevel.lineColor + '55'; ctx.font = '13px -apple-system, sans-serif';
+    const key = isCustomLevel ? 'gd-best-custom-' + currentLevel.name : 'gd-best-' + LEVELS.indexOf(currentLevel);
+    ctx.fillText('Best: ' + (+localStorage.getItem(key)||0), W-20, 44);
+    if (isCustomLevel) {
+      ctx.fillStyle = currentLevel.lineColor + '88'; ctx.textAlign = 'left';
+      ctx.fillText(currentLevel.name, 60, 16);
+    }
+  }
+
+  if (screenShake > 0) ctx.restore();
+}
+
+// Reset game-over heading when restarting
+const origRestart = startGame;
+
+// ====== GAME LOOP ======
+function loop() { update(); draw(); requestAnimationFrame(loop); }
+loop();
+</script>
+</body>
+</html>
