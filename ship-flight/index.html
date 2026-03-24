@@ -78,6 +78,9 @@
     <span>Release</span> to sink down
   </div>
   <button class="btn" id="play-btn">PLAY</button>
+  <div style="margin-top:12px;">
+    <button class="btn btn-sm btn-ghost" id="hitbox-btn">Show Hitboxes</button>
+  </div>
 </div>
 
 <div class="overlay hidden" id="game-over">
@@ -126,6 +129,7 @@ for (let i = 0; i < 120; i++) {
 }
 
 // === GAME STATE ===
+let showHitboxes = false;
 let gameRunning = false, dead = false;
 let score = 0, bestScore = +(localStorage.getItem('ship-flight-best') || 0);
 let holding = false;
@@ -151,7 +155,10 @@ let nextObstacleX = 0;
 function onDown() { holding = true; }
 function onUp() { holding = false; }
 
-document.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); onDown(); } });
+document.addEventListener('keydown', e => {
+  if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); onDown(); }
+  if (e.key === 'h' || e.key === 'H') { showHitboxes = !showHitboxes; }
+});
 document.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'ArrowUp') onUp(); });
 canvas.addEventListener('mousedown', onDown);
 canvas.addEventListener('mouseup', onUp);
@@ -160,6 +167,10 @@ canvas.addEventListener('touchend', e => { e.preventDefault(); onUp(); }, { pass
 
 // === BUTTONS ===
 document.getElementById('play-btn').addEventListener('click', startGame);
+document.getElementById('hitbox-btn').addEventListener('click', () => {
+  showHitboxes = !showHitboxes;
+  document.getElementById('hitbox-btn').textContent = showHitboxes ? 'Hide Hitboxes' : 'Show Hitboxes';
+});
 document.getElementById('retry-btn').addEventListener('click', startGame);
 document.getElementById('menu-btn').addEventListener('click', showMenu);
 
@@ -593,6 +604,67 @@ function draw() {
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.stroke();
     ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(W, H); ctx.stroke();
+  }
+
+  // Hitbox debug mode
+  if (showHitboxes && (gameRunning || dead)) {
+    ctx.lineWidth = 2;
+    ctx.setLineDash([4, 4]);
+
+    // Ship hitbox
+    if (!dead) {
+      const sw = ship.w * 0.7, sh = ship.h * 0.6;
+      ctx.strokeStyle = 'rgba(0,255,0,0.8)';
+      ctx.strokeRect(ship.x - sw/2, ship.y - sh/2, sw, sh);
+    }
+
+    // Obstacle hitboxes
+    for (const ob of obstacles) {
+      const ox = ob.x;
+      if (ox < -100 || ox > W + 100) continue;
+
+      let cy = ob.centerY;
+      if (ob.type === 'moving') {
+        cy += Math.sin(frameCount * 0.02 * ob.moveSpeed + ob.movePhase) * ob.moveRange;
+      }
+
+      ctx.strokeStyle = 'rgba(255,0,0,0.8)';
+
+      if (ob.type === 'laser') {
+        if (ob.laserOn) {
+          ctx.strokeRect(ox - ob.w/2, 0, ob.w, cy - ob.gap/2);
+          ctx.strokeRect(ox - ob.w/2, cy + ob.gap/2, ob.w, H - (cy + ob.gap/2));
+        }
+      } else if (ob.type === 'spinning') {
+        ctx.save();
+        ctx.translate(ox, cy);
+        ctx.rotate(ob.spinAngle);
+        const barW = ob.gap + 40;
+        ctx.strokeRect(-barW/2, -6, barW/2 - ob.gap/2 + 10, 12);
+        ctx.strokeRect(ob.gap/2 - 10, -6, barW/2 - ob.gap/2 + 10, 12);
+        ctx.restore();
+      } else {
+        const topH = cy - ob.gap/2;
+        const botY = cy + ob.gap/2;
+        ctx.strokeRect(ox - ob.w/2, 0, ob.w, topH);
+        ctx.strokeRect(ox - ob.w/2, botY, ob.w, H - botY);
+      }
+
+      // Draw gap area in green
+      ctx.strokeStyle = 'rgba(0,255,0,0.3)';
+      if (ob.type !== 'spinning') {
+        ctx.strokeRect(ox - ob.w/2, cy - ob.gap/2, ob.w, ob.gap);
+      }
+    }
+
+    ctx.setLineDash([]);
+
+    // HUD indicator
+    ctx.fillStyle = 'rgba(255,0,0,0.7)';
+    ctx.font = 'bold 14px -apple-system, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText('HITBOXES ON (H to toggle)', 10, H - 30);
   }
 
   if (screenShake > 0) ctx.restore();
