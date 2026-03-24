@@ -172,9 +172,9 @@ function showMenu() {
 function startGame() {
   score = 0; frameCount = 0;
   gameSpeed = baseSpeed;
-  ship.x = W * 0.2; ship.y = H / 2; ship.vy = 0; ship.angle = 0;
+  ship.x = W * 0.15; ship.y = H / 2; ship.vy = 0; ship.angle = 0;
   obstacles = []; particles = []; trail = [];
-  nextObstacleX = W + 200;
+  nextObstacleX = W + 100;
   holding = false; dead = false; gameRunning = true;
   screenShake = 0;
   theme = THEMES[0];
@@ -252,13 +252,11 @@ function checkCollision() {
     }
 
     if (ob.type === 'spinning') {
-      // Simplified spinning bar collision
-      const dx = sx - ob.x, dy = sy - cy;
+      const dx = ship.x - ob.x, dy = ship.y - cy;
       const angle = ob.spinAngle;
       const rotX = dx * Math.cos(-angle) - dy * Math.sin(-angle);
       const rotY = dx * Math.sin(-angle) + dy * Math.cos(-angle);
       const barW = ob.gap + 40, barH = 12;
-      // Check if inside bar but NOT in the gap
       if (Math.abs(rotX) < barW/2 && Math.abs(rotY) < barH/2) {
         if (Math.abs(rotX) > ob.gap/2 - 10) return true;
       }
@@ -317,9 +315,10 @@ function update() {
   frameCount++;
 
   // Speed ramp
-  gameSpeed = baseSpeed + Math.min(score / 500, 4);
+  gameSpeed = baseSpeed + Math.min(frameCount / 500, 4);
 
   // Theme change every 500 points
+  score = Math.floor(frameCount * gameSpeed / 10);
   const ti = Math.floor(score / 500) % THEMES.length;
   theme = THEMES[ti];
 
@@ -335,17 +334,9 @@ function update() {
   // Ship tilt
   ship.angle = ship.vy * 0.04;
 
-  // Score
-  score = Math.floor(frameCount * gameSpeed / 10);
-
-  // Spawn obstacles
-  while (nextObstacleX < ship.x + W + 300) {
-    spawnObstacle();
-  }
-
-  // Move obstacles relative to camera
-  // Update obstacle states
+  // Move all obstacles left
   for (const ob of obstacles) {
+    ob.x -= gameSpeed;
     if (ob.type === 'laser') {
       ob.laserTimer++;
       if (ob.laserTimer > 90) { ob.laserOn = !ob.laserOn; ob.laserTimer = 0; }
@@ -353,15 +344,16 @@ function update() {
     if (ob.type === 'spinning') {
       ob.spinAngle += ob.spinSpeed;
     }
-    // Score when passed
-    if (!ob.passed && ob.x < ship.x) {
-      ob.passed = true;
-    }
+  }
+  nextObstacleX -= gameSpeed;
+
+  // Spawn new obstacles off-screen right
+  while (nextObstacleX < W + 100) {
+    spawnObstacle();
   }
 
-  // Remove off-screen obstacles
-  const camX = ship.x - W * 0.2;
-  obstacles = obstacles.filter(ob => ob.x > camX - 100);
+  // Remove off-screen left obstacles
+  obstacles = obstacles.filter(ob => ob.x > -100);
 
   // Collision
   if (checkCollision()) { die(); return; }
@@ -392,10 +384,9 @@ function draw() {
   ctx.fillRect(0, 0, W, H);
 
   // Stars (parallax)
-  const camX = gameRunning || dead ? ship.x - W * 0.2 : 0;
   for (const s of stars) {
-    const sx = ((s.x - camX * s.speed * 0.1) % (W + 20));
-    const drawX = sx < 0 ? sx + W + 20 : sx;
+    const sx = ((s.x + frameCount * s.speed * 0.5) % (W + 20));
+    const drawX = W - sx;
     ctx.globalAlpha = s.alpha;
     ctx.fillStyle = '#fff';
     ctx.beginPath();
@@ -404,25 +395,21 @@ function draw() {
   }
   ctx.globalAlpha = 1;
 
-  // Camera offset for game objects
-  const offX = gameRunning || dead ? -(ship.x - W * 0.2) : 0;
-
   // Trail
   for (const t of trail) {
-    const tx = t.x + offX;
-    if (tx < -20 || tx > W + 20) continue;
+    if (t.x < -20 || t.x > W + 20) continue;
     const a = t.life / t.maxLife;
     ctx.globalAlpha = a * 0.6;
     ctx.fillStyle = theme.ship;
     ctx.beginPath();
-    ctx.arc(tx, t.y, t.r * a, 0, Math.PI * 2);
+    ctx.arc(t.x, t.y, t.r * a, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
 
   // Obstacles
   for (const ob of obstacles) {
-    const ox = ob.x + offX;
+    const ox = ob.x;
     if (ox < -100 || ox > W + 100) continue;
 
     let cy = ob.centerY;
@@ -431,7 +418,6 @@ function draw() {
     }
 
     if (ob.type === 'laser') {
-      // Draw pillars
       ctx.fillStyle = theme.wall;
       ctx.shadowColor = theme.wall;
       ctx.shadowBlur = 10;
@@ -439,7 +425,6 @@ function draw() {
       ctx.fillRect(ox - ob.w/2, cy + ob.gap/2, ob.w, H - (cy + ob.gap/2));
       ctx.shadowBlur = 0;
 
-      // Laser beam
       if (ob.laserOn) {
         ctx.strokeStyle = theme.ship2;
         ctx.shadowColor = theme.ship2;
@@ -455,7 +440,6 @@ function draw() {
         ctx.stroke();
         ctx.shadowBlur = 0;
       } else {
-        // Blinking indicator
         ctx.globalAlpha = 0.3;
         ctx.strokeStyle = theme.ship2;
         ctx.setLineDash([4, 8]);
@@ -473,31 +457,24 @@ function draw() {
       ctx.save();
       ctx.translate(ox, cy);
       ctx.rotate(ob.spinAngle);
-      // Draw spinning bar with gap in center
       ctx.fillStyle = theme.wall;
       ctx.shadowColor = theme.wall;
       ctx.shadowBlur = 10;
       const barW = ob.gap + 40;
-      // Left arm
       ctx.fillRect(-barW/2, -6, barW/2 - ob.gap/2 + 10, 12);
-      // Right arm
       ctx.fillRect(ob.gap/2 - 10, -6, barW/2 - ob.gap/2 + 10, 12);
       ctx.shadowBlur = 0;
       ctx.restore();
     } else {
-      // Standard or moving walls
       ctx.fillStyle = theme.wall;
       ctx.shadowColor = theme.wall;
       ctx.shadowBlur = 12;
 
-      // Top wall
       const topH = cy - ob.gap/2;
       ctx.fillRect(ox - ob.w/2, 0, ob.w, topH);
-      // Decorative edge
       ctx.fillStyle = theme.ship2;
       ctx.fillRect(ox - ob.w/2, topH - 4, ob.w, 4);
 
-      // Bottom wall
       ctx.fillStyle = theme.wall;
       const botY = cy + ob.gap/2;
       ctx.fillRect(ox - ob.w/2, botY, ob.w, H - botY);
@@ -506,7 +483,6 @@ function draw() {
 
       ctx.shadowBlur = 0;
 
-      // Glow edges
       ctx.strokeStyle = theme.glow + '0.3)';
       ctx.lineWidth = 1;
       ctx.strokeRect(ox - ob.w/2, 0, ob.w, topH);
@@ -516,7 +492,7 @@ function draw() {
 
   // Ship
   if (!dead) {
-    const sx = ship.x + offX, sy = ship.y;
+    const sx = ship.x, sy = ship.y;
     ctx.save();
     ctx.translate(sx, sy);
     ctx.rotate(ship.angle);
@@ -584,7 +560,7 @@ function draw() {
 
   // Particles
   for (const p of particles) {
-    const px = p.x + offX;
+    const px = p.x;
     if (px < -20 || px > W + 20) continue;
     ctx.globalAlpha = p.life / p.maxLife;
     ctx.fillStyle = p.color;
