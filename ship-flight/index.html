@@ -1,0 +1,683 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="theme-color" content="#0a0a1a">
+  <title>Ship Flight</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+    body {
+      background: #0a0a1a; overflow: hidden; touch-action: none;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      user-select: none; -webkit-user-select: none;
+    }
+    canvas { display: block; width: 100vw; height: 100vh; }
+
+    .overlay {
+      position: fixed; inset: 0;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      background: rgba(5,5,15,0.92); z-index: 10; transition: opacity 0.3s;
+      padding: 30px 16px;
+    }
+    .overlay.hidden { opacity: 0; pointer-events: none; }
+    .overlay h1 {
+      font-size: 44px; font-weight: 800;
+      background: linear-gradient(135deg, #00e5ff, #76ff03);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 6px;
+    }
+    .overlay .subtitle { color: #667; font-size: 15px; margin-bottom: 20px; }
+    .overlay .controls-info { color: #556; font-size: 13px; line-height: 2; text-align: center; margin-bottom: 20px; }
+    .overlay .controls-info span { color: #00e5ff; font-weight: 600; }
+
+    .btn {
+      padding: 12px 36px; border: none; border-radius: 30px; font-size: 17px; font-weight: 700;
+      cursor: pointer; background: linear-gradient(135deg, #00e5ff, #76ff03); color: #000;
+      letter-spacing: 2px; text-transform: uppercase;
+      box-shadow: 0 0 30px rgba(0,229,255,0.3); transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .btn:hover { transform: scale(1.05); box-shadow: 0 0 50px rgba(0,229,255,0.5); }
+    .btn:active { transform: scale(0.97); }
+    .btn-sm { padding: 10px 24px; font-size: 14px; letter-spacing: 1px; }
+    .btn-ghost { background: rgba(255,255,255,0.08); color: #aaa; box-shadow: none; }
+    .btn-ghost:hover { background: rgba(255,255,255,0.15); box-shadow: none; }
+
+    .score-text {
+      font-size: 52px; font-weight: 900;
+      background: linear-gradient(135deg, #00e5ff, #76ff03);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
+      margin-bottom: 4px;
+    }
+    .best-text { font-size: 18px; color: #667; font-weight: 600; margin-bottom: 24px; }
+    .btn-row { display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; }
+
+    .back-btn {
+      position: fixed; top: 12px; left: 12px; z-index: 20;
+      width: 40px; height: 40px; border-radius: 50%;
+      border: 1px solid rgba(255,255,255,0.1); background: rgba(10,10,30,0.7);
+      color: #888; font-size: 20px;
+      display: flex; align-items: center; justify-content: center;
+      cursor: pointer; text-decoration: none; transition: background 0.2s, color 0.2s;
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+    }
+    .back-btn:hover { background: rgba(30,30,60,0.9); color: #fff; }
+  </style>
+</head>
+<body>
+
+<a href="../index.html" class="back-btn">&#8592;</a>
+<canvas id="c"></canvas>
+
+<div class="overlay" id="start-screen">
+  <h1>Ship Flight</h1>
+  <div class="subtitle">Fly through the obstacles!</div>
+  <div class="controls-info">
+    <span>Hold</span> / <span>Tap</span> to fly up<br>
+    <span>Release</span> to sink down
+  </div>
+  <button class="btn" id="play-btn">PLAY</button>
+</div>
+
+<div class="overlay hidden" id="game-over">
+  <h1>GAME OVER</h1>
+  <div class="score-text" id="final-score">0</div>
+  <div class="best-text" id="best-score">Best: 0</div>
+  <div class="btn-row">
+    <button class="btn btn-sm" id="retry-btn">RETRY</button>
+    <button class="btn btn-sm btn-ghost" id="menu-btn">MENU</button>
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById('c');
+const ctx = canvas.getContext('2d');
+let W, H, dpr = window.devicePixelRatio || 1;
+
+function resize() {
+  W = window.innerWidth; H = window.innerHeight;
+  canvas.width = W * dpr; canvas.height = H * dpr;
+  canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+}
+resize();
+window.addEventListener('resize', resize);
+
+// === THEMES ===
+const THEMES = [
+  { bg: '#0a0a1a', wall: '#00e5ff', glow: 'rgba(0,229,255,', ship: '#00e5ff', ship2: '#76ff03' },
+  { bg: '#0a0a1a', wall: '#e040fb', glow: 'rgba(224,64,251,', ship: '#e040fb', ship2: '#7c4dff' },
+  { bg: '#1a0a0a', wall: '#ff5252', glow: 'rgba(255,82,82,', ship: '#ff5252', ship2: '#ff9100' },
+  { bg: '#0a1a0a', wall: '#76ff03', glow: 'rgba(118,255,3,', ship: '#76ff03', ship2: '#00e676' },
+  { bg: '#0a0a1a', wall: '#ffd600', glow: 'rgba(255,214,0,', ship: '#ffd600', ship2: '#ff6d00' },
+  { bg: '#1a0008', wall: '#ff1744', glow: 'rgba(255,23,68,', ship: '#ff1744', ship2: '#d50000' },
+];
+let theme = THEMES[0];
+
+// === STARS ===
+const stars = [];
+for (let i = 0; i < 120; i++) {
+  stars.push({
+    x: Math.random() * 2000, y: Math.random() * 1200,
+    r: 0.5 + Math.random() * 2, speed: 0.3 + Math.random() * 1.5,
+    alpha: 0.3 + Math.random() * 0.7
+  });
+}
+
+// === GAME STATE ===
+let gameRunning = false, dead = false;
+let score = 0, bestScore = +(localStorage.getItem('ship-flight-best') || 0);
+let holding = false;
+let screenShake = 0;
+let baseSpeed = 3;
+let gameSpeed = 3;
+let frameCount = 0;
+
+const ship = { x: 0, y: 0, vy: 0, angle: 0, w: 36, h: 20 };
+let obstacles = [];
+let particles = [];
+let trail = [];
+
+const GRAVITY = 0.35;
+const LIFT = -0.6;
+const MAX_VY = 8;
+const OBSTACLE_GAP = 140;
+const OBSTACLE_WIDTH = 50;
+
+let nextObstacleX = 0;
+
+// === CONTROLS ===
+function onDown() { holding = true; }
+function onUp() { holding = false; }
+
+document.addEventListener('keydown', e => { if (e.key === ' ' || e.key === 'ArrowUp') { e.preventDefault(); onDown(); } });
+document.addEventListener('keyup', e => { if (e.key === ' ' || e.key === 'ArrowUp') onUp(); });
+canvas.addEventListener('mousedown', onDown);
+canvas.addEventListener('mouseup', onUp);
+canvas.addEventListener('touchstart', e => { e.preventDefault(); onDown(); }, { passive: false });
+canvas.addEventListener('touchend', e => { e.preventDefault(); onUp(); }, { passive: false });
+
+// === BUTTONS ===
+document.getElementById('play-btn').addEventListener('click', startGame);
+document.getElementById('retry-btn').addEventListener('click', startGame);
+document.getElementById('menu-btn').addEventListener('click', showMenu);
+
+function showMenu() {
+  gameRunning = false; dead = false;
+  document.getElementById('start-screen').classList.remove('hidden');
+  document.getElementById('game-over').classList.add('hidden');
+}
+
+function startGame() {
+  score = 0; frameCount = 0;
+  gameSpeed = baseSpeed;
+  ship.x = W * 0.2; ship.y = H / 2; ship.vy = 0; ship.angle = 0;
+  obstacles = []; particles = []; trail = [];
+  nextObstacleX = W + 200;
+  holding = false; dead = false; gameRunning = true;
+  screenShake = 0;
+  theme = THEMES[0];
+  document.getElementById('start-screen').classList.add('hidden');
+  document.getElementById('game-over').classList.add('hidden');
+}
+
+// === OBSTACLE GENERATION ===
+function spawnObstacle() {
+  const diff = Math.min(score / 3000, 1);
+  const gap = OBSTACLE_GAP - diff * 50; // gap shrinks over time
+  const minY = gap / 2 + 30;
+  const maxY = H - gap / 2 - 30;
+  const centerY = minY + Math.random() * (maxY - minY);
+
+  const type = Math.random();
+  const ob = {
+    x: nextObstacleX,
+    centerY: centerY,
+    gap: gap,
+    w: OBSTACLE_WIDTH,
+    type: 'static',
+    moveSpeed: 0,
+    moveRange: 0,
+    movePhase: Math.random() * Math.PI * 2,
+    laserOn: true,
+    laserTimer: 0,
+    passed: false,
+  };
+
+  if (score > 500 && type < 0.3) {
+    ob.type = 'moving';
+    ob.moveSpeed = 1 + diff * 2;
+    ob.moveRange = 30 + diff * 40;
+  } else if (score > 1000 && type < 0.15) {
+    ob.type = 'laser';
+    ob.gap = gap + 20;
+    ob.laserTimer = Math.random() * 120;
+  } else if (score > 1500 && type < 0.1) {
+    ob.type = 'spinning';
+    ob.spinAngle = 0;
+    ob.spinSpeed = 0.02 + diff * 0.02;
+  }
+
+  obstacles.push(ob);
+
+  const spacing = 250 - diff * 60;
+  nextObstacleX += Math.max(spacing, 160) + Math.random() * 40;
+}
+
+// === COLLISION ===
+function checkCollision() {
+  const sx = ship.x, sy = ship.y, sw = ship.w * 0.7, sh = ship.h * 0.6;
+  const sL = sx - sw/2, sR = sx + sw/2, sT = sy - sh/2, sB = sy + sh/2;
+
+  // Ceiling and floor
+  if (sT < 0 || sB > H) return true;
+
+  for (const ob of obstacles) {
+    let cy = ob.centerY;
+    if (ob.type === 'moving') {
+      cy += Math.sin(frameCount * 0.02 * ob.moveSpeed + ob.movePhase) * ob.moveRange;
+    }
+
+    const oL = ob.x - ob.w/2, oR = ob.x + ob.w/2;
+    if (sR < oL || sL > oR) continue;
+
+    if (ob.type === 'laser') {
+      if (ob.laserOn) {
+        const topB = cy - ob.gap/2;
+        const botT = cy + ob.gap/2;
+        if (sT < topB || sB > botT) return true;
+      }
+      continue;
+    }
+
+    if (ob.type === 'spinning') {
+      // Simplified spinning bar collision
+      const dx = sx - ob.x, dy = sy - cy;
+      const angle = ob.spinAngle;
+      const rotX = dx * Math.cos(-angle) - dy * Math.sin(-angle);
+      const rotY = dx * Math.sin(-angle) + dy * Math.cos(-angle);
+      const barW = ob.gap + 40, barH = 12;
+      // Check if inside bar but NOT in the gap
+      if (Math.abs(rotX) < barW/2 && Math.abs(rotY) < barH/2) {
+        if (Math.abs(rotX) > ob.gap/2 - 10) return true;
+      }
+      continue;
+    }
+
+    // Standard wall gap
+    const topBottom = cy - ob.gap/2;
+    const botTop = cy + ob.gap/2;
+    if (sT < topBottom || sB > botTop) return true;
+  }
+  return false;
+}
+
+// === PARTICLES ===
+function spawnTrail() {
+  trail.push({
+    x: ship.x - ship.w/2, y: ship.y,
+    life: 15 + Math.random() * 10, maxLife: 25,
+    r: 3 + Math.random() * 4,
+    vx: -1 - Math.random() * 2, vy: (Math.random() - 0.5) * 1.5,
+  });
+}
+
+function spawnExplosion() {
+  for (let i = 0; i < 30; i++) {
+    const a = Math.random() * Math.PI * 2, sp = 2 + Math.random() * 7;
+    particles.push({
+      x: ship.x, y: ship.y,
+      vx: Math.cos(a) * sp, vy: Math.sin(a) * sp,
+      life: 30 + Math.random() * 30, maxLife: 60,
+      r: 2 + Math.random() * 5,
+      color: Math.random() > 0.5 ? theme.ship : theme.ship2,
+    });
+  }
+}
+
+// === DIE ===
+function die() {
+  dead = true; gameRunning = false; screenShake = 15;
+  spawnExplosion();
+  if (score > bestScore) {
+    bestScore = score;
+    localStorage.setItem('ship-flight-best', bestScore);
+  }
+  setTimeout(() => {
+    document.getElementById('final-score').textContent = score;
+    document.getElementById('best-score').textContent = 'Best: ' + bestScore;
+    document.getElementById('game-over').classList.remove('hidden');
+  }, 800);
+}
+
+// === UPDATE ===
+function update() {
+  if (!gameRunning) return;
+  frameCount++;
+
+  // Speed ramp
+  gameSpeed = baseSpeed + Math.min(score / 500, 4);
+
+  // Theme change every 500 points
+  const ti = Math.floor(score / 500) % THEMES.length;
+  theme = THEMES[ti];
+
+  // Ship physics
+  if (holding) {
+    ship.vy += LIFT;
+  } else {
+    ship.vy += GRAVITY;
+  }
+  ship.vy = Math.max(-MAX_VY, Math.min(MAX_VY, ship.vy));
+  ship.y += ship.vy;
+
+  // Ship tilt
+  ship.angle = ship.vy * 0.04;
+
+  // Score
+  score = Math.floor(frameCount * gameSpeed / 10);
+
+  // Spawn obstacles
+  while (nextObstacleX < ship.x + W + 300) {
+    spawnObstacle();
+  }
+
+  // Move obstacles relative to camera
+  // Update obstacle states
+  for (const ob of obstacles) {
+    if (ob.type === 'laser') {
+      ob.laserTimer++;
+      if (ob.laserTimer > 90) { ob.laserOn = !ob.laserOn; ob.laserTimer = 0; }
+    }
+    if (ob.type === 'spinning') {
+      ob.spinAngle += ob.spinSpeed;
+    }
+    // Score when passed
+    if (!ob.passed && ob.x < ship.x) {
+      ob.passed = true;
+    }
+  }
+
+  // Remove off-screen obstacles
+  const camX = ship.x - W * 0.2;
+  obstacles = obstacles.filter(ob => ob.x > camX - 100);
+
+  // Collision
+  if (checkCollision()) { die(); return; }
+
+  // Trail
+  if (frameCount % 2 === 0) spawnTrail();
+  trail = trail.filter(t => { t.x += t.vx; t.y += t.vy; t.life--; return t.life > 0; });
+
+  // Particles
+  particles = particles.filter(p => {
+    p.x += p.vx; p.y += p.vy; p.vy += 0.08; p.vx *= 0.99; p.life--;
+    return p.life > 0;
+  });
+
+  if (screenShake > 0) screenShake--;
+}
+
+// === DRAW ===
+function draw() {
+  ctx.clearRect(0, 0, W, H);
+  if (screenShake > 0) {
+    ctx.save();
+    ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake);
+  }
+
+  // Background
+  ctx.fillStyle = theme.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars (parallax)
+  const camX = gameRunning || dead ? ship.x - W * 0.2 : 0;
+  for (const s of stars) {
+    const sx = ((s.x - camX * s.speed * 0.1) % (W + 20));
+    const drawX = sx < 0 ? sx + W + 20 : sx;
+    ctx.globalAlpha = s.alpha;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(drawX, s.y % H, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Camera offset for game objects
+  const offX = gameRunning || dead ? -(ship.x - W * 0.2) : 0;
+
+  // Trail
+  for (const t of trail) {
+    const tx = t.x + offX;
+    if (tx < -20 || tx > W + 20) continue;
+    const a = t.life / t.maxLife;
+    ctx.globalAlpha = a * 0.6;
+    ctx.fillStyle = theme.ship;
+    ctx.beginPath();
+    ctx.arc(tx, t.y, t.r * a, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Obstacles
+  for (const ob of obstacles) {
+    const ox = ob.x + offX;
+    if (ox < -100 || ox > W + 100) continue;
+
+    let cy = ob.centerY;
+    if (ob.type === 'moving') {
+      cy += Math.sin(frameCount * 0.02 * ob.moveSpeed + ob.movePhase) * ob.moveRange;
+    }
+
+    if (ob.type === 'laser') {
+      // Draw pillars
+      ctx.fillStyle = theme.wall;
+      ctx.shadowColor = theme.wall;
+      ctx.shadowBlur = 10;
+      ctx.fillRect(ox - ob.w/2, 0, ob.w, cy - ob.gap/2);
+      ctx.fillRect(ox - ob.w/2, cy + ob.gap/2, ob.w, H - (cy + ob.gap/2));
+      ctx.shadowBlur = 0;
+
+      // Laser beam
+      if (ob.laserOn) {
+        ctx.strokeStyle = theme.ship2;
+        ctx.shadowColor = theme.ship2;
+        ctx.shadowBlur = 15;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(ox, cy - ob.gap/2);
+        ctx.lineTo(ox, 0);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(ox, cy + ob.gap/2);
+        ctx.lineTo(ox, H);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
+      } else {
+        // Blinking indicator
+        ctx.globalAlpha = 0.3;
+        ctx.strokeStyle = theme.ship2;
+        ctx.setLineDash([4, 8]);
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        ctx.moveTo(ox, 0); ctx.lineTo(ox, cy - ob.gap/2);
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.moveTo(ox, cy + ob.gap/2); ctx.lineTo(ox, H);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        ctx.globalAlpha = 1;
+      }
+    } else if (ob.type === 'spinning') {
+      ctx.save();
+      ctx.translate(ox, cy);
+      ctx.rotate(ob.spinAngle);
+      // Draw spinning bar with gap in center
+      ctx.fillStyle = theme.wall;
+      ctx.shadowColor = theme.wall;
+      ctx.shadowBlur = 10;
+      const barW = ob.gap + 40;
+      // Left arm
+      ctx.fillRect(-barW/2, -6, barW/2 - ob.gap/2 + 10, 12);
+      // Right arm
+      ctx.fillRect(ob.gap/2 - 10, -6, barW/2 - ob.gap/2 + 10, 12);
+      ctx.shadowBlur = 0;
+      ctx.restore();
+    } else {
+      // Standard or moving walls
+      ctx.fillStyle = theme.wall;
+      ctx.shadowColor = theme.wall;
+      ctx.shadowBlur = 12;
+
+      // Top wall
+      const topH = cy - ob.gap/2;
+      ctx.fillRect(ox - ob.w/2, 0, ob.w, topH);
+      // Decorative edge
+      ctx.fillStyle = theme.ship2;
+      ctx.fillRect(ox - ob.w/2, topH - 4, ob.w, 4);
+
+      // Bottom wall
+      ctx.fillStyle = theme.wall;
+      const botY = cy + ob.gap/2;
+      ctx.fillRect(ox - ob.w/2, botY, ob.w, H - botY);
+      ctx.fillStyle = theme.ship2;
+      ctx.fillRect(ox - ob.w/2, botY, ob.w, 4);
+
+      ctx.shadowBlur = 0;
+
+      // Glow edges
+      ctx.strokeStyle = theme.glow + '0.3)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(ox - ob.w/2, 0, ob.w, topH);
+      ctx.strokeRect(ox - ob.w/2, botY, ob.w, H - botY);
+    }
+  }
+
+  // Ship
+  if (!dead) {
+    const sx = ship.x + offX, sy = ship.y;
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(ship.angle);
+
+    // Engine glow
+    ctx.shadowColor = theme.ship;
+    ctx.shadowBlur = 20;
+
+    // Ship body
+    const sw = ship.w, sh = ship.h;
+    ctx.fillStyle = theme.ship;
+    ctx.beginPath();
+    ctx.moveTo(sw/2, 0);           // nose
+    ctx.lineTo(-sw/2, -sh/2);      // top-left
+    ctx.lineTo(-sw/3, 0);          // indent
+    ctx.lineTo(-sw/2, sh/2);       // bottom-left
+    ctx.closePath();
+    ctx.fill();
+
+    // Inner highlight
+    ctx.fillStyle = theme.ship2;
+    ctx.beginPath();
+    ctx.moveTo(sw/3, 0);
+    ctx.lineTo(-sw/4, -sh/4);
+    ctx.lineTo(-sw/6, 0);
+    ctx.lineTo(-sw/4, sh/4);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.shadowBlur = 0;
+
+    // Cockpit
+    ctx.fillStyle = '#fff';
+    ctx.globalAlpha = 0.8;
+    ctx.beginPath();
+    ctx.arc(sw/6, 0, 4, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
+
+    // Engine flame
+    if (holding) {
+      const flameLen = 10 + Math.random() * 15;
+      ctx.fillStyle = theme.ship2;
+      ctx.globalAlpha = 0.8;
+      ctx.beginPath();
+      ctx.moveTo(-sw/3, -sh/4);
+      ctx.lineTo(-sw/3 - flameLen, 0);
+      ctx.lineTo(-sw/3, sh/4);
+      ctx.closePath();
+      ctx.fill();
+      // Inner flame
+      ctx.fillStyle = '#fff';
+      ctx.globalAlpha = 0.6;
+      ctx.beginPath();
+      ctx.moveTo(-sw/3, -sh/6);
+      ctx.lineTo(-sw/3 - flameLen * 0.5, 0);
+      ctx.lineTo(-sw/3, sh/6);
+      ctx.closePath();
+      ctx.fill();
+      ctx.globalAlpha = 1;
+    }
+
+    ctx.restore();
+  }
+
+  // Particles
+  for (const p of particles) {
+    const px = p.x + offX;
+    if (px < -20 || px > W + 20) continue;
+    ctx.globalAlpha = p.life / p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(px, p.y, p.r * (p.life / p.maxLife), 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // HUD
+  if (gameRunning || dead) {
+    ctx.fillStyle = theme.wall;
+    ctx.shadowColor = theme.wall;
+    ctx.shadowBlur = 8;
+    ctx.font = 'bold 28px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(score, W / 2, 16);
+    ctx.shadowBlur = 0;
+
+    // Best score
+    ctx.fillStyle = theme.glow + '0.4)';
+    ctx.font = '13px -apple-system, sans-serif';
+    ctx.fillText('Best: ' + bestScore, W / 2, 48);
+  }
+
+  // Ceiling/floor lines
+  if (gameRunning || dead) {
+    ctx.strokeStyle = theme.glow + '0.3)';
+    ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(W, 0); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(0, H); ctx.lineTo(W, H); ctx.stroke();
+  }
+
+  if (screenShake > 0) ctx.restore();
+}
+
+// === IDLE ANIMATION ===
+let idleY = 0;
+function drawIdle() {
+  idleY += 0.02;
+  ctx.clearRect(0, 0, W, H);
+  ctx.fillStyle = '#0a0a1a';
+  ctx.fillRect(0, 0, W, H);
+
+  // Stars
+  for (const s of stars) {
+    ctx.globalAlpha = s.alpha * 0.5;
+    ctx.fillStyle = '#fff';
+    ctx.beginPath();
+    ctx.arc(s.x % W, s.y % H, s.r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.globalAlpha = 1;
+
+  // Floating ship
+  const sx = W / 2, sy = H / 2 + Math.sin(idleY) * 20;
+  ctx.save();
+  ctx.translate(sx, sy);
+  ctx.rotate(Math.sin(idleY * 1.3) * 0.1);
+  ctx.shadowColor = '#00e5ff';
+  ctx.shadowBlur = 20;
+  ctx.fillStyle = '#00e5ff';
+  ctx.beginPath();
+  ctx.moveTo(18, 0); ctx.lineTo(-18, -10); ctx.lineTo(-12, 0); ctx.lineTo(-18, 10);
+  ctx.closePath();
+  ctx.fill();
+  ctx.fillStyle = '#76ff03';
+  ctx.beginPath();
+  ctx.moveTo(12, 0); ctx.lineTo(-9, -5); ctx.lineTo(-6, 0); ctx.lineTo(-9, 5);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  // flame
+  const fl = 6 + Math.sin(idleY * 5) * 4;
+  ctx.fillStyle = '#76ff03';
+  ctx.globalAlpha = 0.7;
+  ctx.beginPath(); ctx.moveTo(-12, -5); ctx.lineTo(-12 - fl, 0); ctx.lineTo(-12, 5); ctx.closePath(); ctx.fill();
+  ctx.globalAlpha = 1;
+  ctx.restore();
+}
+
+// === LOOP ===
+function loop() {
+  if (!gameRunning && !dead) {
+    drawIdle();
+  } else {
+    update();
+    draw();
+  }
+  requestAnimationFrame(loop);
+}
+loop();
+</script>
+</body>
+</html>
