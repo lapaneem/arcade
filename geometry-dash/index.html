@@ -51,6 +51,9 @@
       background: rgba(255,255,255,0.08); color: #aaa; box-shadow: none;
     }
     .btn-ghost:hover { background: rgba(255,255,255,0.15); box-shadow: none; }
+    .btn-practice {
+      background: linear-gradient(135deg, #76ff03, #00e676); color: #000;
+    }
 
     .score-text {
       font-size: 52px; font-weight: 900;
@@ -58,7 +61,9 @@
       -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text;
       margin-bottom: 4px;
     }
-    .best-text { font-size: 18px; color: #667; font-weight: 600; margin-bottom: 24px; }
+    .best-text { font-size: 18px; color: #667; font-weight: 600; margin-bottom: 8px; }
+    .attempt-text { font-size: 14px; color: #556; margin-bottom: 8px; }
+    .percent-text { font-size: 22px; color: #aaa; font-weight: 700; margin-bottom: 16px; }
 
     .back-btn {
       position: fixed; top: 12px; left: 12px; z-index: 20;
@@ -163,7 +168,7 @@
 <div class="overlay" id="start-screen">
   <h1>Geometry Dash</h1>
   <div class="controls-info">
-    <span>Space</span> / <span>Tap</span> to jump
+    <span>Space</span> / <span>Tap</span> to jump &bull; <span>Hold</span> in ship mode to fly up
   </div>
   <div class="section-title">Levels</div>
   <div class="level-grid" id="level-grid"></div>
@@ -173,16 +178,19 @@
     <button class="btn btn-sm btn-ghost" id="import-btn">Import Code</button>
   </div>
   <div class="level-grid" id="custom-grid"></div>
-  <div style="margin-top:16px;">
+  <div style="margin-top:16px; display:flex; gap:12px; flex-wrap:wrap; justify-content:center;">
     <button class="btn" id="quick-start-btn">QUICK START</button>
+    <button class="btn btn-practice btn-sm" id="practice-start-btn">PRACTICE MODE</button>
   </div>
 </div>
 
 <!-- ===== GAME OVER ===== -->
 <div class="overlay hidden" id="game-over">
-  <h1>GAME OVER</h1>
+  <h1 id="game-over-title">GAME OVER</h1>
+  <div class="percent-text" id="percent-text">0%</div>
   <div class="score-text" id="score-text">0</div>
   <div class="best-text" id="best-text">Best: 0</div>
+  <div class="attempt-text" id="attempt-text">Attempt 1</div>
   <div class="btn-row">
     <button class="btn btn-sm" id="restart-btn">RETRY</button>
     <button class="btn btn-sm btn-ghost" id="menu-btn">MENU</button>
@@ -199,6 +207,10 @@
     <button class="tool-btn" data-tool="spike2">Tall Spike</button>
     <button class="tool-btn" data-tool="block">Block</button>
     <button class="tool-btn" data-tool="block2">Tall Block</button>
+    <button class="tool-btn" data-tool="jumppad">Jump Pad</button>
+    <button class="tool-btn" data-tool="orb">Orb</button>
+    <button class="tool-btn" data-tool="gravity">Gravity</button>
+    <button class="tool-btn" data-tool="ship">Ship Portal</button>
     <button class="tool-btn" data-tool="erase">Eraser</button>
   </div>
   <div id="editor-canvas-wrap">
@@ -241,8 +253,8 @@
 const canvas = document.getElementById('game-canvas');
 const ctx = canvas.getContext('2d');
 let W, H, dpr = window.devicePixelRatio || 1;
-const GROUND_H = 60;
-const GRID = 30; // grid cell size = cube size
+const GROUND_H = 70;
+const GRID = 34; // grid cell size = cube size
 
 function resize() {
   W = window.innerWidth; H = window.innerHeight;
@@ -257,26 +269,27 @@ window.addEventListener('resize', resize);
 const LEVELS = [
   { name:'Chill Wave', difficulty:'Easy', speed:5, gravity:0.7, jumpForce:-10, spawnGap:260,
     bgColor:'#0a0a1a', groundColor:'#1a1a2e', lineColor:'#4fc3f7', spikeColor:'#4fc3f7',
-    cubeColors:['#4fc3f7','#00e5ff'], unlockScore:0 },
+    cubeColors:['#4fc3f7','#00e5ff'], unlockScore:0, levelLength:3000 },
   { name:'Neon Rush', difficulty:'Normal', speed:7, gravity:0.7, jumpForce:-10.5, spawnGap:210,
     bgColor:'#0a0a1a', groundColor:'#1a0a2e', lineColor:'#e040fb', spikeColor:'#e040fb',
-    cubeColors:['#e040fb','#7c4dff'], unlockScore:50 },
+    cubeColors:['#e040fb','#7c4dff'], unlockScore:50, levelLength:4000 },
   { name:'Fire Storm', difficulty:'Hard', speed:8.5, gravity:0.75, jumpForce:-11, spawnGap:180,
     bgColor:'#1a0a0a', groundColor:'#2e1a1a', lineColor:'#ff5252', spikeColor:'#ff5252',
-    cubeColors:['#ff5252','#ff9100'], unlockScore:150 },
+    cubeColors:['#ff5252','#ff9100'], unlockScore:150, levelLength:5000 },
   { name:'Toxic Lab', difficulty:'Hard', speed:9, gravity:0.75, jumpForce:-11, spawnGap:170,
     bgColor:'#0a1a0a', groundColor:'#1a2e1a', lineColor:'#76ff03', spikeColor:'#76ff03',
-    cubeColors:['#76ff03','#00e676'], unlockScore:300 },
+    cubeColors:['#76ff03','#00e676'], unlockScore:300, levelLength:5500 },
   { name:'Hyper Void', difficulty:'Insane', speed:11, gravity:0.8, jumpForce:-11.5, spawnGap:150,
     bgColor:'#0a0a1a', groundColor:'#1a1a2e', lineColor:'#ffd600', spikeColor:'#ffd600',
-    cubeColors:['#ffd600','#ff6d00'], unlockScore:500 },
+    cubeColors:['#ffd600','#ff6d00'], unlockScore:500, levelLength:6000 },
   { name:'Impossible', difficulty:'Demon', speed:13, gravity:0.85, jumpForce:-12, spawnGap:130,
     bgColor:'#1a0008', groundColor:'#2e0010', lineColor:'#ff1744', spikeColor:'#ff1744',
-    cubeColors:['#ff1744','#d50000'], unlockScore:800 },
+    cubeColors:['#ff1744','#d50000'], unlockScore:800, levelLength:7000 },
 ];
 
 let currentLevel = LEVELS[0];
-let customLevelData = null; // when playing a custom level, holds the obstacle array
+let currentLevelIndex = 0;
+let customLevelData = null;
 let isCustomLevel = false;
 
 const config = { speed:5, gravity:0.7, jumpForce:-10, cubeSize:GRID, spawnGap:260 };
@@ -284,9 +297,31 @@ const config = { speed:5, gravity:0.7, jumpForce:-10, cubeSize:GRID, spawnGap:26
 // ====== GAME STATE ======
 let gameRunning = false;
 let distance = 0, bestScore = 0;
-let obstacles = [], particles = [], bgShapes = [];
+let obstacles = [], particles = [], bgShapes = [], trailParticles = [];
 let nextSpawnX = 0, screenShake = 0;
 let jumpHeld = false;
+let attempts = 1;
+let practiceMode = false;
+let practiceCheckpoints = []; // distances where checkpoints are
+let lastCheckpointDist = 0;
+let lastCheckpointY = 0;
+let lastCheckpointVy = 0;
+let lastCheckpointGravDir = 1;
+let lastCheckpointMode = 'cube';
+let lastCheckpointSpeed = 5;
+
+// Game mode: 'cube' or 'ship'
+let gameMode = 'cube';
+// Gravity direction: 1 = normal (down), -1 = flipped (up)
+let gravityDir = 1;
+// Speed multiplier
+let speedMult = 1; // 0.7 = slow, 1 = normal, 1.5 = fast
+// Level total distance for progress bar
+let levelTotalDist = 3000;
+// Background pulse
+let bgPulse = 0;
+let bgPulseDir = 1;
+
 const player = { x:0, y:0, vy:0, grounded:false, angle:0, dead:false };
 
 // ====== CUSTOM LEVELS STORAGE ======
@@ -323,74 +358,244 @@ function initBgShapes() {
 }
 initBgShapes();
 
-// ====== OBSTACLE GENERATION (procedural for built-in levels) ======
+// ====== OBSTACLE/ELEMENT GENERATION ======
 function spawnObstacle(x) {
   const groundY = H - GROUND_H;
   const s = config.cubeSize;
-  const diff = Math.min(distance / 2000, 1);
+  const diff = Math.min(distance / 2000, 1); // 0..1 difficulty progression
+  const lvlIdx = currentLevelIndex;
   const type = Math.random();
-  if (type < 0.5) {
+
+  // Basic spikes - always possible
+  if (type < 0.35) {
     obstacles.push({ type:'spike', x, y:groundY, w:s, h:s });
-  } else if (type < 0.75) {
+  } else if (type < 0.5) {
+    // Double spike
     obstacles.push({ type:'spike', x, y:groundY, w:s, h:s });
     obstacles.push({ type:'spike', x:x+s+4, y:groundY, w:s, h:s });
-  } else if (type < 0.9) {
+  } else if (type < 0.6) {
+    // Tall spike
     obstacles.push({ type:'spike', x, y:groundY, w:s, h:s + 10 + diff*15 });
-  } else {
+  } else if (type < 0.68) {
+    // Block obstacle
     obstacles.push({ type:'block', x, y:groundY, w:s*1.5, h:s + diff*20 });
+  } else if (type < 0.76 && lvlIdx >= 0) {
+    // Jump pad on ground
+    obstacles.push({ type:'jumppad', x, y:groundY, w:s, h:s*0.4 });
+    // Put a spike or block ahead that requires the jump pad
+    const aheadX = x + s*4 + Math.random()*s*2;
+    obstacles.push({ type:'spike', x:aheadX, y:groundY, w:s, h:s*1.5 });
+  } else if (type < 0.83 && lvlIdx >= 1) {
+    // Jump orb floating in air
+    const orbY = groundY - s*2.5 - Math.random()*s*2;
+    obstacles.push({ type:'orb', x, y:orbY, w:s*0.8, h:s*0.8, orbColor:'#ffeb3b' });
+    // Spike below the orb path
+    obstacles.push({ type:'spike', x:x+s*3, y:groundY, w:s, h:s*1.3 });
+  } else if (type < 0.88 && lvlIdx >= 2 && diff > 0.3) {
+    // Gravity portal
+    obstacles.push({ type:'gravity_portal', x, y:groundY - s*2, w:s*1.2, h:s*3, portalDir: gravityDir === 1 ? -1 : 1 });
+    // After some distance, flip back
+    obstacles.push({ type:'gravity_portal', x:x+s*18+Math.random()*s*5, y:groundY - s*2, w:s*1.2, h:s*3, portalDir: gravityDir === 1 ? 1 : -1 });
+  } else if (type < 0.93 && lvlIdx >= 3 && diff > 0.4) {
+    // Ship portal - enter ship mode
+    obstacles.push({ type:'ship_portal', x, y:groundY - s*2, w:s*1.2, h:s*3, toMode:'ship' });
+    // After a stretch, back to cube
+    const shipLen = s*20 + Math.random()*s*10;
+    // Add some aerial obstacles in the ship section
+    for (let sx = s*5; sx < shipLen; sx += s*4 + Math.random()*s*3) {
+      const oy = groundY - s*2 - Math.random()*(H*0.5);
+      obstacles.push({ type:'spike', x:x+sx, y:oy+s, w:s, h:s });
+    }
+    obstacles.push({ type:'ship_portal', x:x+shipLen, y:groundY - s*2, w:s*1.2, h:s*3, toMode:'cube' });
+  } else if (type < 0.96 && lvlIdx >= 2) {
+    // Speed portal
+    const speeds = [0.7, 1, 1.5];
+    const newSpeed = speeds[Math.floor(Math.random()*speeds.length)];
+    obstacles.push({ type:'speed_portal', x, y:groundY - s*2, w:s*1.0, h:s*3, speedMult:newSpeed });
+  } else {
+    // Triple spike for difficulty
+    obstacles.push({ type:'spike', x, y:groundY, w:s, h:s });
+    obstacles.push({ type:'spike', x:x+s+2, y:groundY, w:s, h:s });
+    obstacles.push({ type:'spike', x:x+s*2+4, y:groundY, w:s, h:s });
   }
 }
 
 function generateObstacles() {
   if (isCustomLevel) return;
-  const lookAhead = distance + W + 400;
+  const lookAhead = distance + W + 500;
   while (nextSpawnX < lookAhead) {
     const diff = Math.min(distance / 3000, 1);
     const gap = config.spawnGap - diff * 80 + Math.random() * 60;
-    nextSpawnX += Math.max(gap, 120);
+    nextSpawnX += Math.max(gap, 130);
     spawnObstacle(nextSpawnX);
   }
 }
 
 // ====== COLLISION ======
 function checkCollision() {
-  const s = config.cubeSize, px = player.x, py = player.y, shrink = 5;
+  const s = config.cubeSize, px = player.x, py = player.y;
+  const shrink = 5;
   const pL = px+shrink, pR = px+s-shrink, pT = py+shrink, pB = py+s-shrink;
+  const groundY = H - GROUND_H;
+  const ceilingY = 0;
+
   for (const ob of obstacles) {
     const ox = ob.x - distance;
-    if (ox > W || ox + ob.w < 0) continue;
+    if (ox > W + 50 || ox + ob.w < -50) continue;
+
     if (ob.type === 'spike') {
-      const sL = ox + ob.w*0.25, sR = ox + ob.w*0.75, sT = ob.y - ob.h, sB = ob.y;
+      // Triangle collision (simplified to inner rectangle)
+      const sL = ox + ob.w*0.2, sR = ox + ob.w*0.8;
+      let sT, sB;
+      if (ob.flipped) {
+        sT = ob.y;
+        sB = ob.y + ob.h;
+      } else {
+        sT = ob.y - ob.h;
+        sB = ob.y;
+      }
       if (pR > sL && pL < sR && pB > sT && pT < sB) return true;
     } else if (ob.type === 'block') {
       const bL = ox, bR = ox+ob.w, bT = ob.y-ob.h, bB = ob.y;
       if (pR > bL && pL < bR && pB > bT && pT < bB) {
-        if (player.vy >= 0 && py+s-shrink <= bT + player.vy + 4) {
+        // Land on top if coming from above
+        if (gravityDir === 1 && player.vy >= 0 && py+s-shrink <= bT + Math.abs(player.vy) + 4) {
           player.y = bT - s; player.vy = 0; player.grounded = true; return false;
+        }
+        // Land on bottom if gravity flipped and coming from below
+        if (gravityDir === -1 && player.vy <= 0 && py+shrink >= bB - Math.abs(player.vy) - 4) {
+          player.y = bB; player.vy = 0; player.grounded = true; return false;
         }
         return true;
       }
+    } else if (ob.type === 'jumppad') {
+      const padL = ox, padR = ox+ob.w, padT = ob.y-ob.h, padB = ob.y;
+      if (pR > padL && pL < padR && pB > padT && pT < padB) {
+        if (!ob.triggered) {
+          ob.triggered = true;
+          player.vy = config.jumpForce * 1.6 * gravityDir;
+          player.grounded = false;
+          ob.flashTime = 10;
+          // Spawn particles
+          for (let i = 0; i < 6; i++) {
+            particles.push({ x:px+s/2, y:py+s, vx:(Math.random()-0.5)*4, vy:-Math.random()*5,
+              life:15, maxLife:15, color:'#ffeb3b', r:2+Math.random()*3 });
+          }
+        }
+      } else {
+        ob.triggered = false;
+      }
+    } else if (ob.type === 'orb') {
+      const orbCX = ox + ob.w/2, orbCY = ob.y + ob.h/2;
+      const playerCX = px+s/2, playerCY = py+s/2;
+      const dist = Math.hypot(orbCX-playerCX, orbCY-playerCY);
+      if (dist < (ob.w/2 + s/2)*0.7) {
+        ob.nearPlayer = true;
+        if (jumpHeld && !ob.used) {
+          ob.used = true;
+          ob.flashTime = 10;
+          player.vy = config.jumpForce * 1.3 * gravityDir;
+          player.grounded = false;
+          for (let i = 0; i < 8; i++) {
+            const a = Math.random()*Math.PI*2;
+            particles.push({ x:orbCX+distance-ob.x+px, y:orbCY, vx:Math.cos(a)*3, vy:Math.sin(a)*3,
+              life:15, maxLife:15, color:ob.orbColor||'#ffeb3b', r:2+Math.random()*3 });
+          }
+        }
+      } else {
+        ob.nearPlayer = false;
+        if (ox + ob.w < px) ob.used = false; // Reset if passed
+      }
+    } else if (ob.type === 'gravity_portal') {
+      const portalCX = ox + ob.w/2;
+      const portalL = ox, portalR = ox+ob.w;
+      if (pR > portalL && pL < portalR && !ob.triggered) {
+        ob.triggered = true;
+        gravityDir = ob.portalDir;
+        player.vy = 0;
+        player.grounded = false;
+        bgPulse = 1.0;
+        for (let i = 0; i < 12; i++) {
+          const a = Math.random()*Math.PI*2;
+          particles.push({ x:px+s/2, y:py+s/2, vx:Math.cos(a)*5, vy:Math.sin(a)*5,
+            life:20, maxLife:20, color: ob.portalDir === -1 ? '#42a5f5' : '#ffd600', r:2+Math.random()*4 });
+        }
+      }
+    } else if (ob.type === 'ship_portal') {
+      const portalL = ox, portalR = ox+ob.w;
+      if (pR > portalL && pL < portalR && !ob.triggered) {
+        ob.triggered = true;
+        gameMode = ob.toMode;
+        player.grounded = false;
+        if (gameMode === 'ship') {
+          player.vy = 0;
+        }
+        bgPulse = 1.0;
+        for (let i = 0; i < 12; i++) {
+          const a = Math.random()*Math.PI*2;
+          particles.push({ x:px+s/2, y:py+s/2, vx:Math.cos(a)*5, vy:Math.sin(a)*5,
+            life:20, maxLife:20, color: ob.toMode === 'ship' ? '#e040fb' : '#4fc3f7', r:2+Math.random()*4 });
+        }
+      }
+    } else if (ob.type === 'speed_portal') {
+      const portalL = ox, portalR = ox+ob.w;
+      if (pR > portalL && pL < portalR && !ob.triggered) {
+        ob.triggered = true;
+        speedMult = ob.speedMult;
+        bgPulse = 0.5;
+      }
+    } else if (ob.type === 'checkpoint') {
+      // Practice mode checkpoints
+      const cpL = ox, cpR = ox+ob.w;
+      if (pR > cpL && pL < cpR && !ob.collected && practiceMode) {
+        ob.collected = true;
+        lastCheckpointDist = distance;
+        lastCheckpointY = player.y;
+        lastCheckpointVy = 0;
+        lastCheckpointGravDir = gravityDir;
+        lastCheckpointMode = gameMode;
+        lastCheckpointSpeed = speedMult;
+        ob.flashTime = 15;
+      }
     }
   }
+
   return false;
 }
 
 // ====== PARTICLES ======
 function spawnDeathParticles() {
   const cx = player.x + config.cubeSize/2, cy = player.y + config.cubeSize/2;
-  for (let i = 0; i < 20; i++) {
-    const a = Math.random()*Math.PI*2, sp = 2+Math.random()*6;
+  for (let i = 0; i < 25; i++) {
+    const a = Math.random()*Math.PI*2, sp = 2+Math.random()*7;
     particles.push({ x:cx, y:cy, vx:Math.cos(a)*sp, vy:Math.sin(a)*sp-3,
-      life:30+Math.random()*30, maxLife:30+Math.random()*30,
+      life:35+Math.random()*35, maxLife:35+Math.random()*35,
       color:[currentLevel.cubeColors[0], currentLevel.cubeColors[1], currentLevel.spikeColor][Math.floor(Math.random()*3)],
-      r:2+Math.random()*5 });
+      r:2+Math.random()*6 });
   }
 }
 function spawnRunParticles() {
   if (Math.random() > 0.3) return;
   const s = config.cubeSize;
-  particles.push({ x:player.x+Math.random()*4, y:player.y+s, vx:-1-Math.random()*2, vy:-Math.random()*1.5,
+  const py = gravityDir === 1 ? player.y+s : player.y;
+  particles.push({ x:player.x+Math.random()*4, y:py, vx:-1-Math.random()*2, vy:(-Math.random()*1.5)*gravityDir,
     life:10+Math.random()*10, maxLife:10+Math.random()*10, color:currentLevel.cubeColors[0], r:1+Math.random()*2 });
+}
+
+// Trail effect
+function spawnTrail() {
+  const s = config.cubeSize;
+  trailParticles.push({
+    x: player.x + s*0.15,
+    y: player.y + s*0.15,
+    w: s*0.7,
+    h: s*0.7,
+    life: 12,
+    maxLife: 12,
+    angle: player.angle,
+    color: currentLevel.cubeColors[0]
+  });
+  if (trailParticles.length > 30) trailParticles.shift();
 }
 
 // ====== GAME CONTROL ======
@@ -398,24 +603,42 @@ function applyLevel(lvl) {
   currentLevel = lvl;
   config.speed = lvl.speed; config.gravity = lvl.gravity;
   config.jumpForce = lvl.jumpForce; config.spawnGap = lvl.spawnGap || 220;
+  levelTotalDist = (lvl.levelLength || 5000) * (lvl.speed / 5);
 }
 
-function selectLevel(idx) { isCustomLevel = false; customLevelData = null; applyLevel(LEVELS[idx]); startGame(); }
+function selectLevel(idx, practice) {
+  isCustomLevel = false; customLevelData = null;
+  currentLevelIndex = idx;
+  practiceMode = practice || false;
+  applyLevel(LEVELS[idx]);
+  startGame();
+}
 
-function playCustomLevel(lvlObj) {
+function playCustomLevel(lvlObj, practice) {
   isCustomLevel = true;
-  const theme = LEVELS[0]; // use default theme
+  const theme = LEVELS[0];
   const merged = { ...theme, name:lvlObj.name, speed:lvlObj.speed||6, gravity:lvlObj.gravity||0.7,
     jumpForce:lvlObj.jumpForce||-10, lineColor:lvlObj.color||'#4fc3f7',
     spikeColor:lvlObj.color||'#4fc3f7', cubeColors:[lvlObj.color||'#4fc3f7', lvlObj.color2||'#00e5ff'] };
   applyLevel(merged);
   customLevelData = lvlObj.obstacles;
+  practiceMode = practice || false;
   startGame();
 }
 
 function startGame() {
-  distance = 0; obstacles = []; particles = []; nextSpawnX = W * 0.6;
+  distance = 0; obstacles = []; particles = []; trailParticles = [];
+  nextSpawnX = W * 0.6;
   screenShake = 0; jumpHeld = false;
+  gameMode = 'cube'; gravityDir = 1; speedMult = 1;
+  bgPulse = 0;
+  lastCheckpointDist = 0;
+  lastCheckpointY = H - GROUND_H - config.cubeSize;
+  lastCheckpointVy = 0;
+  lastCheckpointGravDir = 1;
+  lastCheckpointMode = 'cube';
+  lastCheckpointSpeed = 1;
+  practiceCheckpoints = [];
   player.x = W * 0.15; player.y = H - GROUND_H - config.cubeSize;
   player.vy = 0; player.grounded = true; player.angle = 0; player.dead = false;
   gameRunning = true;
@@ -424,11 +647,27 @@ function startGame() {
   if (isCustomLevel && customLevelData) {
     const groundY = H - GROUND_H;
     const startX = W * 0.5;
-    obstacles = customLevelData.map(ob => ({
-      type: ob.t, x: startX + ob.x * GRID, y: groundY, w: ob.w * GRID, h: ob.h * GRID
-    }));
+    obstacles = customLevelData.map(ob => {
+      const mapped = {
+        type: ob.t, x: startX + ob.x * GRID, y: groundY, w: ob.w * GRID, h: ob.h * GRID
+      };
+      // Map special types
+      if (ob.t === 'jumppad') { mapped.y = groundY; mapped.h = GRID*0.4; }
+      if (ob.t === 'orb') { mapped.y = groundY - GRID*3; mapped.orbColor = '#ffeb3b'; }
+      if (ob.t === 'gravity_portal') { mapped.y = groundY - GRID*2; mapped.h = GRID*3; mapped.portalDir = -1; }
+      if (ob.t === 'ship_portal') { mapped.y = groundY - GRID*2; mapped.h = GRID*3; mapped.toMode = 'ship'; }
+      return mapped;
+    });
+    levelTotalDist = obstacles.reduce((max, ob) => Math.max(max, ob.x + ob.w), 0) + W;
   } else {
     generateObstacles();
+    // Add practice checkpoints if in practice mode
+    if (practiceMode) {
+      const groundY = H - GROUND_H;
+      for (let cx = 400; cx < levelTotalDist; cx += 600) {
+        obstacles.push({ type:'checkpoint', x:cx, y:groundY - GRID*1.5, w:GRID*0.7, h:GRID*0.7, collected:false });
+      }
+    }
   }
 }
 
@@ -440,28 +679,73 @@ function hideAll() {
 
 function showMenu() {
   gameRunning = false; player.dead = false;
+  attempts = 1;
   hideAll();
   document.getElementById('start-screen').classList.remove('hidden');
   buildLevelGrid(); buildCustomGrid();
 }
 
+function getProgress() {
+  if (isCustomLevel && customLevelData) {
+    const lastOb = obstacles.reduce((max, ob) => Math.max(max, ob.x + ob.w), 0);
+    if (lastOb <= 0) return 0;
+    return Math.min(1, distance / (lastOb + W*0.5));
+  }
+  return Math.min(1, distance / levelTotalDist);
+}
+
 function die() {
-  player.dead = true; gameRunning = false; screenShake = 12;
+  player.dead = true; screenShake = 14;
   spawnDeathParticles();
+  bgPulse = 0.8;
+
+  if (practiceMode && lastCheckpointDist > 0) {
+    // Respawn at checkpoint
+    setTimeout(() => {
+      attempts++;
+      distance = lastCheckpointDist;
+      player.y = lastCheckpointY;
+      player.vy = lastCheckpointVy;
+      player.dead = false;
+      player.grounded = false;
+      player.angle = 0;
+      gravityDir = lastCheckpointGravDir;
+      gameMode = lastCheckpointMode;
+      speedMult = lastCheckpointSpeed;
+      gameRunning = true;
+      screenShake = 0;
+      particles = [];
+      trailParticles = [];
+    }, 500);
+    return;
+  }
+
+  gameRunning = false;
   const score = Math.floor(distance / 10);
+  const pct = Math.floor(getProgress() * 100);
   const key = isCustomLevel ? 'gd-best-custom-' + currentLevel.name : 'gd-best-' + LEVELS.indexOf(currentLevel);
   bestScore = +localStorage.getItem(key) || 0;
   if (score > bestScore) { bestScore = score; localStorage.setItem(key, bestScore); }
+
   setTimeout(() => {
+    document.getElementById('game-over-title').textContent = 'GAME OVER';
+    document.getElementById('percent-text').textContent = pct + '%';
     document.getElementById('score-text').textContent = score;
     document.getElementById('best-text').textContent = 'Best: ' + bestScore;
+    document.getElementById('attempt-text').textContent = 'Attempt ' + attempts;
     document.getElementById('game-over').classList.remove('hidden');
   }, 600);
 }
 
 function doJump() {
   if (!gameRunning) return;
-  if (player.grounded) { player.vy = config.jumpForce; player.grounded = false; }
+  if (gameMode === 'cube') {
+    if (player.grounded) {
+      player.vy = config.jumpForce * gravityDir;
+      player.grounded = false;
+    }
+  }
+  // Ship mode: handled in update
 }
 
 // ====== INPUT ======
@@ -477,7 +761,7 @@ canvas.addEventListener('touchstart', e => { e.preventDefault(); jumpHeld = true
 canvas.addEventListener('touchend', e => { e.preventDefault(); jumpHeld = false; }, { passive:false });
 
 // ====== BUTTONS ======
-document.getElementById('restart-btn').addEventListener('click', startGame);
+document.getElementById('restart-btn').addEventListener('click', () => { attempts++; startGame(); });
 document.getElementById('menu-btn').addEventListener('click', showMenu);
 document.getElementById('create-btn').addEventListener('click', openEditor);
 document.getElementById('import-btn').addEventListener('click', () => {
@@ -491,7 +775,6 @@ document.getElementById('import-go-btn').addEventListener('click', () => {
   const code = document.getElementById('import-code').value;
   const lvl = decodeLevel(code);
   if (!lvl) { alert('Invalid level code!'); return; }
-  // Save to custom levels
   const customs = getCustomLevels();
   if (!customs.find(c => c.name === lvl.name)) { customs.push(lvl); saveCustomLevels(customs); }
   document.getElementById('import-modal').classList.remove('show');
@@ -506,6 +789,8 @@ document.getElementById('share-copy-btn').addEventListener('click', () => {
 document.getElementById('share-close-btn').addEventListener('click', () => {
   document.getElementById('share-modal').classList.remove('show');
 });
+document.getElementById('quick-start-btn').addEventListener('click', () => { selectLevel(0, false); });
+document.getElementById('practice-start-btn').addEventListener('click', () => { selectLevel(0, true); });
 
 // ====== LEVEL GRIDS ======
 function buildLevelGrid() {
@@ -521,7 +806,7 @@ function buildLevelGrid() {
     card.innerHTML = unlocked
       ? `<div class="level-name" style="color:${level.lineColor}">${level.name}</div><div class="level-diff">${level.difficulty}</div>`
       : `<div style="font-size:16px;margin-bottom:2px;">&#128274;</div><div class="level-name" style="color:#555">${level.name}</div><div class="level-diff">${level.unlockScore} pts</div>`;
-    if (unlocked) card.addEventListener('click', () => selectLevel(i));
+    if (unlocked) card.addEventListener('click', () => selectLevel(i, false));
     grid.appendChild(card);
   });
 }
@@ -564,8 +849,6 @@ function buildCustomGrid() {
 try { buildLevelGrid(); } catch(e) { console.error('Level grid error:', e); }
 try { buildCustomGrid(); } catch(e) { console.error('Custom grid error:', e); }
 
-document.getElementById('quick-start-btn').addEventListener('click', () => { selectLevel(0); });
-
 // ====== LEVEL EDITOR ======
 const editorCanvas = document.getElementById('editor-canvas');
 const ectx = editorCanvas.getContext('2d');
@@ -586,7 +869,6 @@ function openEditor() {
   document.getElementById('editor-screen').classList.remove('hidden');
   resizeEditorCanvas();
   drawEditor();
-  // Reset active tool button
   document.querySelectorAll('#toolbar .tool-btn').forEach(b => b.classList.remove('active'));
   document.querySelector('#toolbar .tool-btn[data-tool="spike"]').classList.add('active');
 }
@@ -648,15 +930,52 @@ function drawEditor() {
       ectx.lineTo(ox, groundY);
       ectx.closePath();
       ectx.fill();
-      ectx.strokeStyle = '#e040fb99';
-      ectx.lineWidth = 1;
-      ectx.stroke();
-    } else {
+    } else if (ob.t === 'block') {
       ectx.fillStyle = '#1e88e5';
       ectx.fillRect(ox, oy, ob.w * EDITOR_CELL, ob.h * EDITOR_CELL);
       ectx.strokeStyle = '#1e88e599';
       ectx.lineWidth = 1;
       ectx.strokeRect(ox, oy, ob.w * EDITOR_CELL, ob.h * EDITOR_CELL);
+    } else if (ob.t === 'jumppad') {
+      ectx.fillStyle = '#ffeb3b';
+      ectx.fillRect(ox, groundY - 8, ob.w * EDITOR_CELL, 8);
+      // Arrow
+      ectx.beginPath();
+      ectx.moveTo(ox + ob.w*EDITOR_CELL/2, groundY - 16);
+      ectx.lineTo(ox + ob.w*EDITOR_CELL/2 + 6, groundY - 8);
+      ectx.lineTo(ox + ob.w*EDITOR_CELL/2 - 6, groundY - 8);
+      ectx.closePath();
+      ectx.fill();
+    } else if (ob.t === 'orb') {
+      const cx = ox + ob.w*EDITOR_CELL/2;
+      const cy = groundY - EDITOR_CELL*2.5;
+      ectx.beginPath();
+      ectx.arc(cx, cy, EDITOR_CELL*0.4, 0, Math.PI*2);
+      ectx.fillStyle = '#ffeb3b';
+      ectx.fill();
+      ectx.strokeStyle = '#fff';
+      ectx.lineWidth = 2;
+      ectx.stroke();
+    } else if (ob.t === 'gravity_portal') {
+      ectx.fillStyle = 'rgba(66,165,245,0.4)';
+      ectx.fillRect(ox, groundY - EDITOR_CELL*3, ob.w*EDITOR_CELL, EDITOR_CELL*3);
+      ectx.strokeStyle = '#42a5f5';
+      ectx.lineWidth = 2;
+      ectx.strokeRect(ox, groundY - EDITOR_CELL*3, ob.w*EDITOR_CELL, EDITOR_CELL*3);
+      ectx.fillStyle = '#42a5f5';
+      ectx.font = '8px sans-serif';
+      ectx.textAlign = 'center';
+      ectx.fillText('GRAV', ox + ob.w*EDITOR_CELL/2, groundY - EDITOR_CELL*1.3);
+    } else if (ob.t === 'ship_portal') {
+      ectx.fillStyle = 'rgba(224,64,251,0.4)';
+      ectx.fillRect(ox, groundY - EDITOR_CELL*3, ob.w*EDITOR_CELL, EDITOR_CELL*3);
+      ectx.strokeStyle = '#e040fb';
+      ectx.lineWidth = 2;
+      ectx.strokeRect(ox, groundY - EDITOR_CELL*3, ob.w*EDITOR_CELL, EDITOR_CELL*3);
+      ectx.fillStyle = '#e040fb';
+      ectx.font = '8px sans-serif';
+      ectx.textAlign = 'center';
+      ectx.fillText('SHIP', ox + ob.w*EDITOR_CELL/2, groundY - EDITOR_CELL*1.3);
     }
   }
 
@@ -667,12 +986,16 @@ function drawEditor() {
   ectx.fillText('Scroll: ' + Math.floor(editorScrollX / EDITOR_CELL), w - 8, 14);
 }
 
-// Tool definitions: { type, w (cells), h (cells) }
+// Tool definitions
 const TOOLS = {
   spike:  { t:'spike', w:1, h:1 },
   spike2: { t:'spike', w:1, h:2 },
   block:  { t:'block', w:1, h:1 },
   block2: { t:'block', w:1, h:2 },
+  jumppad: { t:'jumppad', w:1, h:0.3 },
+  orb:    { t:'orb', w:1, h:1 },
+  gravity: { t:'gravity_portal', w:1, h:3 },
+  ship:   { t:'ship_portal', w:1, h:3 },
   erase:  null,
 };
 
@@ -710,7 +1033,6 @@ function editorPlace(e, erase) {
   } else {
     const tool = TOOLS[editorTool];
     if (!tool) return;
-    // Don't place on top of existing
     const exists = editorObstacles.find(ob => ob.x === gridX);
     if (!exists) {
       editorObstacles.push({ t:tool.t, x:gridX, w:tool.w, h:tool.h });
@@ -730,14 +1052,12 @@ editorCanvas.addEventListener('mousemove', e => {
 editorCanvas.addEventListener('mouseup', () => { editorDragging = false; });
 editorCanvas.addEventListener('contextmenu', e => e.preventDefault());
 
-// Scroll editor with mouse wheel
 editorCanvas.addEventListener('wheel', e => {
   e.preventDefault();
   editorScrollX = Math.max(0, editorScrollX + e.deltaY * 0.5);
   drawEditor();
 }, { passive: false });
 
-// Touch scroll
 let editorTouchStartX = 0, editorTouchScrollStart = 0;
 editorCanvas.addEventListener('touchstart', e => {
   e.preventDefault();
@@ -773,7 +1093,6 @@ document.getElementById('editor-save-btn').addEventListener('click', () => {
   const existing = customs.findIndex(c => c.name === name);
   if (existing >= 0) customs[existing] = lvl; else customs.push(lvl);
   saveCustomLevels(customs);
-  // Show share modal
   document.getElementById('share-code').value = encodeLevel(lvl);
   document.getElementById('share-modal').classList.add('show');
   showMenu();
@@ -782,36 +1101,111 @@ document.getElementById('editor-save-btn').addEventListener('click', () => {
 // ====== UPDATE ======
 function update() {
   if (!gameRunning) return;
-  const groundY = H - GROUND_H, s = config.cubeSize;
-  distance += config.speed;
-  player.vy += config.gravity;
-  player.y += player.vy;
-  if (player.y + s >= groundY) { player.y = groundY - s; player.vy = 0; player.grounded = true; }
-  if (player.grounded && jumpHeld) doJump();
+  const groundY = H - GROUND_H, ceilingY = 0, s = config.cubeSize;
+  const effectiveSpeed = config.speed * speedMult;
+  distance += effectiveSpeed;
 
-  if (!player.grounded) {
-    player.angle += config.speed * 0.06;
-  } else {
-    const target = Math.round(player.angle / (Math.PI/2)) * (Math.PI/2);
-    player.angle += (target - player.angle) * 0.3;
+  // Background pulse decay
+  if (bgPulse > 0) bgPulse *= 0.95;
+  if (bgPulse < 0.01) bgPulse = 0;
+
+  // Ambient pulse (slow, subtle)
+  bgPulseDir += 0.02;
+
+  if (gameMode === 'cube') {
+    // Cube physics
+    player.vy += config.gravity * gravityDir;
+    player.y += player.vy;
+
+    // Ground / ceiling
+    if (gravityDir === 1) {
+      if (player.y + s >= groundY) {
+        player.y = groundY - s; player.vy = 0; player.grounded = true;
+      }
+      if (player.y < ceilingY) { player.y = ceilingY; player.vy = 0; }
+    } else {
+      // Flipped gravity: ceiling is ground
+      if (player.y <= ceilingY) {
+        player.y = ceilingY; player.vy = 0; player.grounded = true;
+      }
+      if (player.y + s > groundY) { player.y = groundY - s; player.vy = 0; }
+    }
+
+    if (player.grounded && jumpHeld) doJump();
+
+    // Rotation
+    if (!player.grounded) {
+      player.angle += effectiveSpeed * 0.06 * gravityDir;
+    } else {
+      const target = Math.round(player.angle / (Math.PI/2)) * (Math.PI/2);
+      player.angle += (target - player.angle) * 0.3;
+    }
+  } else if (gameMode === 'ship') {
+    // Ship physics: hold to go up, release to go down
+    const shipGravity = 0.45 * gravityDir;
+    const shipLift = -0.9 * gravityDir;
+
+    if (jumpHeld) {
+      player.vy += shipLift;
+    } else {
+      player.vy += shipGravity;
+    }
+
+    // Clamp ship velocity
+    const maxVy = 8;
+    if (player.vy > maxVy) player.vy = maxVy;
+    if (player.vy < -maxVy) player.vy = -maxVy;
+
+    player.y += player.vy;
+    player.grounded = false;
+
+    // Bounds
+    if (player.y + s >= groundY) { player.y = groundY - s; player.vy = 0; player.grounded = true; }
+    if (player.y < ceilingY) { player.y = ceilingY; player.vy = 0; }
+
+    // Ship tilts based on velocity
+    const targetAngle = player.vy * 0.04;
+    player.angle += (targetAngle - player.angle) * 0.15;
   }
 
   if (checkCollision()) { die(); return; }
 
-  // Custom level: check if passed all obstacles (win!)
+  // Check if level complete (built-in levels have a length)
+  if (!isCustomLevel) {
+    if (distance >= levelTotalDist) {
+      // Beat the level!
+      const score = Math.floor(distance / 10);
+      const key = 'gd-best-' + LEVELS.indexOf(currentLevel);
+      bestScore = +localStorage.getItem(key) || 0;
+      if (score > bestScore) { bestScore = score; localStorage.setItem(key, bestScore); }
+      gameRunning = false;
+      setTimeout(() => {
+        document.getElementById('game-over-title').textContent = 'LEVEL CLEAR!';
+        document.getElementById('percent-text').textContent = '100%';
+        document.getElementById('score-text').textContent = score;
+        document.getElementById('best-text').textContent = 'Best: ' + bestScore;
+        document.getElementById('attempt-text').textContent = 'Attempt ' + attempts;
+        document.getElementById('game-over').classList.remove('hidden');
+      }, 300);
+      return;
+    }
+  }
+
+  // Custom level completion
   if (isCustomLevel && customLevelData) {
     const lastOb = obstacles.reduce((max, ob) => Math.max(max, ob.x + ob.w), 0);
     if (distance > lastOb + W) {
-      // Beat the level!
       const score = Math.floor(distance / 10);
       const key = 'gd-best-custom-' + currentLevel.name;
       bestScore = +localStorage.getItem(key) || 0;
       if (score > bestScore) { bestScore = score; localStorage.setItem(key, bestScore); }
       gameRunning = false;
       setTimeout(() => {
-        document.getElementById('score-text').textContent = score + ' - CLEAR!';
+        document.getElementById('game-over-title').textContent = 'LEVEL CLEAR!';
+        document.getElementById('percent-text').textContent = '100%';
+        document.getElementById('score-text').textContent = score;
         document.getElementById('best-text').textContent = 'Best: ' + bestScore;
-        document.getElementById('game-over').querySelector('h1').textContent = 'LEVEL CLEAR!';
+        document.getElementById('attempt-text').textContent = 'Attempt ' + attempts;
         document.getElementById('game-over').classList.remove('hidden');
       }, 300);
       return;
@@ -819,9 +1213,17 @@ function update() {
   }
 
   generateObstacles();
-  if (!isCustomLevel) obstacles = obstacles.filter(ob => ob.x - distance > -200);
+  if (!isCustomLevel) obstacles = obstacles.filter(ob => ob.x - distance > -300);
 
-  if (player.grounded) spawnRunParticles();
+  // Trail
+  spawnTrail();
+
+  if (player.grounded && gameMode === 'cube') spawnRunParticles();
+
+  // Update trail
+  trailParticles = trailParticles.filter(t => { t.life--; return t.life > 0; });
+
+  // Update particles
   particles = particles.filter(p => {
     p.x += p.vx; p.y += p.vy; p.vy += 0.1; p.vx *= 0.98; p.life--; return p.life > 0;
   });
@@ -829,90 +1231,584 @@ function update() {
 }
 
 // ====== DRAW ======
+function drawCubePlayer(cx, cy, s) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(player.angle);
+  ctx.shadowColor = currentLevel.cubeColors[0];
+  ctx.shadowBlur = 18;
+  const grad = ctx.createLinearGradient(-s/2,-s/2,s/2,s/2);
+  grad.addColorStop(0, currentLevel.cubeColors[0]);
+  grad.addColorStop(1, currentLevel.cubeColors[1]);
+  ctx.fillStyle = grad;
+  // Rounded rect
+  const r = 3;
+  ctx.beginPath();
+  ctx.moveTo(-s/2+r, -s/2);
+  ctx.lineTo(s/2-r, -s/2);
+  ctx.quadraticCurveTo(s/2, -s/2, s/2, -s/2+r);
+  ctx.lineTo(s/2, s/2-r);
+  ctx.quadraticCurveTo(s/2, s/2, s/2-r, s/2);
+  ctx.lineTo(-s/2+r, s/2);
+  ctx.quadraticCurveTo(-s/2, s/2, -s/2, s/2-r);
+  ctx.lineTo(-s/2, -s/2+r);
+  ctx.quadraticCurveTo(-s/2, -s/2, -s/2+r, -s/2);
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Inner square detail
+  ctx.strokeStyle = 'rgba(255,255,255,0.12)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(-s/4, -s/4, s/2, s/2);
+
+  // Eye - the iconic GD face
+  // White eye background
+  const eyeX = s*0.08;
+  const eyeY = -s*0.05;
+  const eyeR = s*0.22;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(eyeX, eyeY, eyeR, 0, Math.PI*2);
+  ctx.fill();
+
+  // Pupil
+  const pupilR = eyeR * 0.55;
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.arc(eyeX + pupilR*0.2, eyeY - pupilR*0.1, pupilR, 0, Math.PI*2);
+  ctx.fill();
+
+  // Pupil highlight
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(eyeX + pupilR*0.5, eyeY - pupilR*0.4, pupilR*0.3, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
+function drawShipPlayer(cx, cy, s) {
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(player.angle);
+  ctx.shadowColor = currentLevel.cubeColors[0];
+  ctx.shadowBlur = 18;
+
+  const grad = ctx.createLinearGradient(-s/2,-s/2,s/2,s/2);
+  grad.addColorStop(0, currentLevel.cubeColors[0]);
+  grad.addColorStop(1, currentLevel.cubeColors[1]);
+  ctx.fillStyle = grad;
+
+  // Ship body - triangle/arrow shape
+  ctx.beginPath();
+  ctx.moveTo(s/2, 0); // nose
+  ctx.lineTo(-s/2, -s/2); // top wing
+  ctx.lineTo(-s/4, 0); // indent
+  ctx.lineTo(-s/2, s/2); // bottom wing
+  ctx.closePath();
+  ctx.fill();
+  ctx.shadowBlur = 0;
+  ctx.strokeStyle = 'rgba(255,255,255,0.5)';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // Engine glow
+  if (jumpHeld) {
+    ctx.fillStyle = currentLevel.cubeColors[0] + '88';
+    ctx.beginPath();
+    ctx.moveTo(-s/4, -s*0.15);
+    ctx.lineTo(-s*0.8, 0);
+    ctx.lineTo(-s/4, s*0.15);
+    ctx.closePath();
+    ctx.fill();
+  }
+
+  // Eye on ship
+  const eyeX = s*0.05;
+  const eyeY = -s*0.02;
+  const eyeR = s*0.16;
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(eyeX, eyeY, eyeR, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#111';
+  ctx.beginPath();
+  ctx.arc(eyeX + eyeR*0.25, eyeY, eyeR*0.55, 0, Math.PI*2);
+  ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath();
+  ctx.arc(eyeX + eyeR*0.45, eyeY - eyeR*0.25, eyeR*0.2, 0, Math.PI*2);
+  ctx.fill();
+
+  ctx.restore();
+}
+
 function draw() {
   ctx.clearRect(0, 0, W, H);
   if (screenShake > 0) { ctx.save(); ctx.translate((Math.random()-0.5)*screenShake, (Math.random()-0.5)*screenShake); }
 
-  ctx.fillStyle = currentLevel.bgColor;
+  // Background with pulse
+  const pulseAmount = bgPulse * 0.3 + Math.sin(bgPulseDir) * 0.03;
+  const bgR = parseInt(currentLevel.bgColor.slice(1,3), 16);
+  const bgG = parseInt(currentLevel.bgColor.slice(3,5), 16);
+  const bgB = parseInt(currentLevel.bgColor.slice(5,7), 16);
+  const pR = Math.min(255, bgR + pulseAmount * 100);
+  const pG = Math.min(255, bgG + pulseAmount * 60);
+  const pB = Math.min(255, bgB + pulseAmount * 120);
+  ctx.fillStyle = `rgb(${Math.floor(pR)},${Math.floor(pG)},${Math.floor(pB)})`;
   ctx.fillRect(0, 0, W, H);
+
+  // Pulsing color flash overlay
+  if (bgPulse > 0.05) {
+    ctx.globalAlpha = bgPulse * 0.15;
+    ctx.fillStyle = currentLevel.lineColor;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalAlpha = 1;
+  }
 
   // BG shapes
   for (const s of bgShapes) {
-    const sx = ((s.x - distance * s.speed) % (W + 100)) - 50;
-    ctx.globalAlpha = s.alpha; ctx.fillStyle = s.color;
-    if (s.type === 0) { ctx.beginPath(); ctx.arc(sx, s.y, s.size/2, 0, Math.PI*2); ctx.fill(); }
-    else if (s.type === 1) { ctx.fillRect(sx-s.size/2, s.y-s.size/2, s.size, s.size); }
-    else { ctx.beginPath(); ctx.moveTo(sx, s.y-s.size/2); ctx.lineTo(sx+s.size/2, s.y+s.size/2); ctx.lineTo(sx-s.size/2, s.y+s.size/2); ctx.closePath(); ctx.fill(); }
+    const sx = ((s.x - distance * s.speed) % (W + 100));
+    const drawX = sx < -50 ? sx + W + 100 : sx;
+    ctx.globalAlpha = s.alpha + bgPulse * 0.03;
+    ctx.fillStyle = s.color;
+    if (s.type === 0) { ctx.beginPath(); ctx.arc(drawX, s.y, s.size/2, 0, Math.PI*2); ctx.fill(); }
+    else if (s.type === 1) { ctx.fillRect(drawX-s.size/2, s.y-s.size/2, s.size, s.size); }
+    else { ctx.beginPath(); ctx.moveTo(drawX, s.y-s.size/2); ctx.lineTo(drawX+s.size/2, s.y+s.size/2); ctx.lineTo(drawX-s.size/2, s.y+s.size/2); ctx.closePath(); ctx.fill(); }
     ctx.globalAlpha = 1;
   }
 
   const groundY = H - GROUND_H;
-  ctx.fillStyle = currentLevel.groundColor; ctx.fillRect(0, groundY, W, GROUND_H);
-  ctx.strokeStyle = currentLevel.lineColor; ctx.lineWidth = 2;
-  ctx.shadowColor = currentLevel.lineColor; ctx.shadowBlur = 8;
-  ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke(); ctx.shadowBlur = 0;
 
-  // Grid
-  ctx.strokeStyle = currentLevel.lineColor + '14'; ctx.lineWidth = 1;
-  const gs = 40, go = -(distance * config.speed * 0.5) % gs;
-  for (let x = go; x < W; x += gs) { ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x, H); ctx.stroke(); }
-  for (let y = groundY + gs; y < H; y += gs) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+  // Ground with checker pattern
+  const checkerSize = 20;
+  const effectiveSpeed = config.speed * speedMult;
+  const groundOffset = (distance * 1) % (checkerSize * 2);
+  ctx.fillStyle = currentLevel.groundColor;
+  ctx.fillRect(0, groundY, W, GROUND_H);
+
+  // Checker pattern
+  for (let row = 0; row < Math.ceil(GROUND_H / checkerSize); row++) {
+    for (let col = -1; col < Math.ceil(W / checkerSize) + 2; col++) {
+      const cx = col * checkerSize - groundOffset;
+      const cy = groundY + row * checkerSize;
+      if ((row + col) % 2 === 0) {
+        ctx.fillStyle = currentLevel.lineColor + '12';
+      } else {
+        ctx.fillStyle = currentLevel.lineColor + '06';
+      }
+      ctx.fillRect(cx, cy, checkerSize, checkerSize);
+    }
+  }
+
+  // Ground line glow
+  ctx.strokeStyle = currentLevel.lineColor;
+  ctx.lineWidth = 2;
+  ctx.shadowColor = currentLevel.lineColor;
+  ctx.shadowBlur = 12 + bgPulse * 20;
+  ctx.beginPath(); ctx.moveTo(0, groundY); ctx.lineTo(W, groundY); ctx.stroke();
+  ctx.shadowBlur = 0;
+
+  // Grid lines on ground
+  ctx.strokeStyle = currentLevel.lineColor + '18';
+  ctx.lineWidth = 1;
+  for (let x = -groundOffset; x < W + checkerSize; x += checkerSize) {
+    ctx.beginPath(); ctx.moveTo(x, groundY); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = groundY + checkerSize; y < H; y += checkerSize) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
 
   // Obstacles
   for (const ob of obstacles) {
     const ox = ob.x - distance;
-    if (ox > W + 50 || ox + ob.w < -50) continue;
+    if (ox > W + 80 || ox + ob.w < -80) continue;
+
     if (ob.type === 'spike') {
-      ctx.fillStyle = currentLevel.spikeColor; ctx.shadowColor = currentLevel.spikeColor; ctx.shadowBlur = 10;
-      ctx.beginPath(); ctx.moveTo(ox+ob.w/2, ob.y-ob.h); ctx.lineTo(ox+ob.w, ob.y); ctx.lineTo(ox, ob.y); ctx.closePath(); ctx.fill();
-      ctx.shadowBlur = 0; ctx.strokeStyle = currentLevel.spikeColor+'99'; ctx.lineWidth = 1.5; ctx.stroke();
-    } else {
-      ctx.fillStyle = '#1e88e5'; ctx.shadowColor = '#1e88e5'; ctx.shadowBlur = 8;
-      ctx.fillRect(ox, ob.y-ob.h, ob.w, ob.h); ctx.shadowBlur = 0;
-      ctx.strokeStyle = 'rgba(30,136,229,0.6)'; ctx.lineWidth = 1.5; ctx.strokeRect(ox, ob.y-ob.h, ob.w, ob.h);
+      ctx.fillStyle = currentLevel.spikeColor;
+      ctx.shadowColor = currentLevel.spikeColor;
+      ctx.shadowBlur = 10 + bgPulse * 15;
+      ctx.beginPath();
+      if (ob.flipped) {
+        ctx.moveTo(ox+ob.w/2, ob.y+ob.h);
+        ctx.lineTo(ox+ob.w, ob.y);
+        ctx.lineTo(ox, ob.y);
+      } else {
+        ctx.moveTo(ox+ob.w/2, ob.y-ob.h);
+        ctx.lineTo(ox+ob.w, ob.y);
+        ctx.lineTo(ox, ob.y);
+      }
+      ctx.closePath();
+      ctx.fill();
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = currentLevel.spikeColor+'99';
+      ctx.lineWidth = 1.5;
+      ctx.stroke();
+
+      // Inner triangle detail
+      ctx.strokeStyle = 'rgba(255,255,255,0.15)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      if (ob.flipped) {
+        ctx.moveTo(ox+ob.w/2, ob.y+ob.h*0.65);
+        ctx.lineTo(ox+ob.w*0.7, ob.y+ob.h*0.15);
+        ctx.lineTo(ox+ob.w*0.3, ob.y+ob.h*0.15);
+      } else {
+        ctx.moveTo(ox+ob.w/2, ob.y-ob.h*0.65);
+        ctx.lineTo(ox+ob.w*0.7, ob.y-ob.h*0.15);
+        ctx.lineTo(ox+ob.w*0.3, ob.y-ob.h*0.15);
+      }
+      ctx.closePath();
+      ctx.stroke();
+    } else if (ob.type === 'block') {
+      ctx.fillStyle = '#1e88e5';
+      ctx.shadowColor = '#1e88e5';
+      ctx.shadowBlur = 8;
+      ctx.fillRect(ox, ob.y-ob.h, ob.w, ob.h);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = 'rgba(30,136,229,0.6)';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(ox, ob.y-ob.h, ob.w, ob.h);
+      // Inner detail
+      ctx.strokeStyle = 'rgba(255,255,255,0.1)';
+      ctx.lineWidth = 1;
+      const inset = 4;
+      ctx.strokeRect(ox+inset, ob.y-ob.h+inset, ob.w-inset*2, ob.h-inset*2);
+    } else if (ob.type === 'jumppad') {
+      // Yellow arrow pad on ground
+      const padW = ob.w, padH = ob.h;
+      const flash = ob.flashTime > 0 ? 1 : 0;
+      if (ob.flashTime > 0) ob.flashTime--;
+
+      ctx.fillStyle = flash ? '#fff' : '#ffeb3b';
+      ctx.shadowColor = '#ffeb3b';
+      ctx.shadowBlur = 8 + flash * 20;
+      ctx.fillRect(ox, ob.y - padH, padW, padH);
+      ctx.shadowBlur = 0;
+
+      // Arrow pointing up
+      ctx.fillStyle = flash ? '#ffeb3b' : '#f57f17';
+      ctx.beginPath();
+      ctx.moveTo(ox + padW/2, ob.y - padH - padW*0.5);
+      ctx.lineTo(ox + padW*0.8, ob.y - padH);
+      ctx.lineTo(ox + padW*0.2, ob.y - padH);
+      ctx.closePath();
+      ctx.fill();
+
+      // Border
+      ctx.strokeStyle = '#f9a825';
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(ox, ob.y - padH, padW, padH);
+    } else if (ob.type === 'orb') {
+      // Floating ring/orb
+      const orbCX = ox + ob.w/2, orbCY = ob.y + ob.h/2;
+      const orbR = ob.w/2;
+      const flash = ob.flashTime > 0 ? 1 : 0;
+      if (ob.flashTime > 0) ob.flashTime--;
+      const col = ob.used ? '#666' : (ob.orbColor || '#ffeb3b');
+
+      // Outer ring
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 3;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = flash ? 25 : 12;
+      ctx.beginPath();
+      ctx.arc(orbCX, orbCY, orbR + 4, 0, Math.PI*2);
+      ctx.stroke();
+      ctx.shadowBlur = 0;
+
+      // Inner filled circle
+      ctx.fillStyle = col + (ob.used ? '44' : 'aa');
+      ctx.beginPath();
+      ctx.arc(orbCX, orbCY, orbR, 0, Math.PI*2);
+      ctx.fill();
+
+      // White highlight
+      if (!ob.used) {
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.beginPath();
+        ctx.arc(orbCX - orbR*0.2, orbCY - orbR*0.2, orbR*0.4, 0, Math.PI*2);
+        ctx.fill();
+      }
+
+      // Pulsing indicator if near player
+      if (ob.nearPlayer && !ob.used) {
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 1.5;
+        ctx.globalAlpha = 0.4 + Math.sin(Date.now()*0.01) * 0.3;
+        ctx.beginPath();
+        ctx.arc(orbCX, orbCY, orbR + 10, 0, Math.PI*2);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+      }
+    } else if (ob.type === 'gravity_portal') {
+      // Blue/yellow portal column
+      const portalH = ob.h;
+      const isFlip = ob.portalDir === -1;
+      const col1 = isFlip ? '#42a5f5' : '#ffd600';
+      const col2 = isFlip ? '#1565c0' : '#ff8f00';
+
+      ctx.globalAlpha = 0.3 + Math.sin(Date.now()*0.005) * 0.1;
+      const portalGrad = ctx.createLinearGradient(ox, ob.y - portalH, ox, ob.y);
+      portalGrad.addColorStop(0, col1);
+      portalGrad.addColorStop(1, col2);
+      ctx.fillStyle = portalGrad;
+      ctx.fillRect(ox, ob.y - portalH, ob.w, portalH);
+      ctx.globalAlpha = 1;
+
+      // Border
+      ctx.strokeStyle = col1;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = col1;
+      ctx.shadowBlur = 15;
+      ctx.strokeRect(ox, ob.y - portalH, ob.w, portalH);
+      ctx.shadowBlur = 0;
+
+      // Arrow inside
+      ctx.fillStyle = '#fff';
+      const arrowCX = ox + ob.w/2;
+      const arrowCY = ob.y - portalH/2;
+      ctx.beginPath();
+      if (isFlip) {
+        ctx.moveTo(arrowCX, arrowCY - 10);
+        ctx.lineTo(arrowCX + 6, arrowCY + 4);
+        ctx.lineTo(arrowCX - 6, arrowCY + 4);
+      } else {
+        ctx.moveTo(arrowCX, arrowCY + 10);
+        ctx.lineTo(arrowCX + 6, arrowCY - 4);
+        ctx.lineTo(arrowCX - 6, arrowCY - 4);
+      }
+      ctx.closePath();
+      ctx.fill();
+    } else if (ob.type === 'ship_portal') {
+      // Pink/purple portal
+      const portalH = ob.h;
+      const isShip = ob.toMode === 'ship';
+      const col1 = isShip ? '#e040fb' : '#4fc3f7';
+      const col2 = isShip ? '#7c4dff' : '#00bcd4';
+
+      ctx.globalAlpha = 0.3 + Math.sin(Date.now()*0.005) * 0.1;
+      const portalGrad = ctx.createLinearGradient(ox, ob.y - portalH, ox, ob.y);
+      portalGrad.addColorStop(0, col1);
+      portalGrad.addColorStop(1, col2);
+      ctx.fillStyle = portalGrad;
+      ctx.fillRect(ox, ob.y - portalH, ob.w, portalH);
+      ctx.globalAlpha = 1;
+
+      ctx.strokeStyle = col1;
+      ctx.lineWidth = 2.5;
+      ctx.shadowColor = col1;
+      ctx.shadowBlur = 15;
+      ctx.strokeRect(ox, ob.y - portalH, ob.w, portalH);
+      ctx.shadowBlur = 0;
+
+      // Icon: ship shape or cube shape
+      ctx.fillStyle = '#fff';
+      const iconCX = ox + ob.w/2;
+      const iconCY = ob.y - portalH/2;
+      if (isShip) {
+        ctx.beginPath();
+        ctx.moveTo(iconCX + 8, iconCY);
+        ctx.lineTo(iconCX - 6, iconCY - 6);
+        ctx.lineTo(iconCX - 3, iconCY);
+        ctx.lineTo(iconCX - 6, iconCY + 6);
+        ctx.closePath();
+        ctx.fill();
+      } else {
+        ctx.fillRect(iconCX - 5, iconCY - 5, 10, 10);
+      }
+    } else if (ob.type === 'speed_portal') {
+      // Speed portal - green/orange/purple
+      const portalH = ob.h;
+      let col;
+      if (ob.speedMult < 1) col = '#4fc3f7'; // slow = blue
+      else if (ob.speedMult === 1) col = '#76ff03'; // normal = green
+      else col = '#ff9100'; // fast = orange
+
+      ctx.globalAlpha = 0.25 + Math.sin(Date.now()*0.006) * 0.1;
+      ctx.fillStyle = col;
+      ctx.fillRect(ox, ob.y - portalH, ob.w, portalH);
+      ctx.globalAlpha = 1;
+
+      ctx.strokeStyle = col;
+      ctx.lineWidth = 2;
+      ctx.shadowColor = col;
+      ctx.shadowBlur = 12;
+      ctx.strokeRect(ox, ob.y - portalH, ob.w, portalH);
+      ctx.shadowBlur = 0;
+
+      // Speed arrows
+      ctx.fillStyle = '#fff';
+      const sCX = ox + ob.w/2;
+      const sCY = ob.y - portalH/2;
+      const numArrows = ob.speedMult < 1 ? 1 : ob.speedMult > 1 ? 3 : 2;
+      for (let i = 0; i < numArrows; i++) {
+        const aox = (i - (numArrows-1)/2) * 6;
+        ctx.beginPath();
+        ctx.moveTo(sCX + aox + 4, sCY);
+        ctx.lineTo(sCX + aox - 2, sCY - 4);
+        ctx.lineTo(sCX + aox - 2, sCY + 4);
+        ctx.closePath();
+        ctx.fill();
+      }
+    } else if (ob.type === 'checkpoint') {
+      // Green diamond checkpoint
+      const cpCX = ox + ob.w/2;
+      const cpCY = ob.y + ob.h/2;
+      const cpR = ob.w/2;
+      const collected = ob.collected;
+      const flash = ob.flashTime > 0 ? 1 : 0;
+      if (ob.flashTime > 0) ob.flashTime--;
+
+      ctx.save();
+      ctx.translate(cpCX, cpCY);
+      ctx.rotate(Math.PI/4);
+      ctx.fillStyle = collected ? '#76ff03' : 'rgba(118,255,3,0.3)';
+      ctx.shadowColor = '#76ff03';
+      ctx.shadowBlur = collected ? 15 : 5;
+      ctx.fillRect(-cpR, -cpR, cpR*2, cpR*2);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = '#76ff03';
+      ctx.lineWidth = 2;
+      ctx.strokeRect(-cpR, -cpR, cpR*2, cpR*2);
+      ctx.restore();
     }
+  }
+
+  // Trail effect
+  for (const t of trailParticles) {
+    const alpha = (t.life / t.maxLife) * 0.3;
+    ctx.globalAlpha = alpha;
+    ctx.save();
+    const tcx = t.x + config.cubeSize/2;
+    const tcy = t.y + config.cubeSize/2;
+    ctx.translate(tcx, tcy);
+    ctx.rotate(t.angle);
+    ctx.fillStyle = t.color;
+    const ts = t.w * (t.life / t.maxLife);
+    if (gameMode === 'ship') {
+      // Ship trail - flame-like
+      ctx.beginPath();
+      ctx.moveTo(ts/2, 0);
+      ctx.lineTo(-ts/2, -ts/2);
+      ctx.lineTo(-ts/4, 0);
+      ctx.lineTo(-ts/2, ts/2);
+      ctx.closePath();
+      ctx.fill();
+    } else {
+      ctx.fillRect(-ts/2, -ts/2, ts, ts);
+    }
+    ctx.restore();
+    ctx.globalAlpha = 1;
   }
 
   // Player
   if (!player.dead) {
     const s = config.cubeSize, cx = player.x+s/2, cy = player.y+s/2;
-    ctx.save(); ctx.translate(cx, cy); ctx.rotate(player.angle);
-    ctx.shadowColor = currentLevel.cubeColors[0]; ctx.shadowBlur = 15;
-    const grad = ctx.createLinearGradient(-s/2,-s/2,s/2,s/2);
-    grad.addColorStop(0, currentLevel.cubeColors[0]); grad.addColorStop(1, currentLevel.cubeColors[1]);
-    ctx.fillStyle = grad; ctx.fillRect(-s/2,-s/2,s,s); ctx.shadowBlur = 0;
-    ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 2; ctx.strokeRect(-s/2,-s/2,s,s);
-    ctx.strokeStyle = 'rgba(255,255,255,0.15)'; ctx.lineWidth = 1; ctx.strokeRect(-s/4,-s/4,s/2,s/2);
-    ctx.restore();
+    if (gameMode === 'cube') {
+      drawCubePlayer(cx, cy, s);
+    } else {
+      drawShipPlayer(cx, cy, s);
+    }
   }
 
   // Particles
   for (const p of particles) {
-    ctx.globalAlpha = p.life/p.maxLife; ctx.fillStyle = p.color;
-    ctx.beginPath(); ctx.arc(p.x, p.y, p.r*(p.life/p.maxLife), 0, Math.PI*2); ctx.fill();
+    ctx.globalAlpha = p.life/p.maxLife;
+    ctx.fillStyle = p.color;
+    ctx.beginPath();
+    ctx.arc(p.x, p.y, p.r*(p.life/p.maxLife), 0, Math.PI*2);
+    ctx.fill();
   }
   ctx.globalAlpha = 1;
 
-  // HUD
+  // ====== HUD ======
   if (gameRunning || player.dead) {
     const score = Math.floor(distance / 10);
+    const progress = getProgress();
+
+    // Progress bar at top
+    const barW = W * 0.4;
+    const barH = 6;
+    const barX = (W - barW) / 2;
+    const barY = 14;
+    ctx.fillStyle = 'rgba(255,255,255,0.1)';
+    ctx.fillRect(barX, barY, barW, barH);
+    const progGrad = ctx.createLinearGradient(barX, 0, barX + barW, 0);
+    progGrad.addColorStop(0, currentLevel.cubeColors[0]);
+    progGrad.addColorStop(1, currentLevel.cubeColors[1]);
+    ctx.fillStyle = progGrad;
+    ctx.fillRect(barX, barY, barW * progress, barH);
+    ctx.strokeStyle = 'rgba(255,255,255,0.2)';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(barX, barY, barW, barH);
+
+    // Percentage on progress bar
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold 11px -apple-system, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'top';
+    ctx.fillText(Math.floor(progress * 100) + '%', W/2, barY + barH + 3);
+
+    // Score
     ctx.fillStyle = currentLevel.lineColor + 'cc';
-    ctx.font = 'bold 24px -apple-system, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+    ctx.font = 'bold 24px -apple-system, sans-serif';
+    ctx.textAlign = 'right';
+    ctx.textBaseline = 'top';
     ctx.fillText(score, W-20, 16);
-    ctx.fillStyle = currentLevel.lineColor + '55'; ctx.font = '13px -apple-system, sans-serif';
+    ctx.fillStyle = currentLevel.lineColor + '55';
+    ctx.font = '13px -apple-system, sans-serif';
     const key = isCustomLevel ? 'gd-best-custom-' + currentLevel.name : 'gd-best-' + LEVELS.indexOf(currentLevel);
     ctx.fillText('Best: ' + (+localStorage.getItem(key)||0), W-20, 44);
-    if (isCustomLevel) {
-      ctx.fillStyle = currentLevel.lineColor + '88'; ctx.textAlign = 'left';
-      ctx.fillText(currentLevel.name, 60, 16);
+
+    // Level name and attempt counter
+    ctx.fillStyle = currentLevel.lineColor + '88';
+    ctx.textAlign = 'left';
+    ctx.fillText(currentLevel.name, 60, 16);
+    ctx.fillStyle = currentLevel.lineColor + '55';
+    ctx.fillText('Att. ' + attempts, 60, 34);
+
+    // Practice mode indicator
+    if (practiceMode) {
+      ctx.fillStyle = '#76ff0388';
+      ctx.font = 'bold 13px -apple-system, sans-serif';
+      ctx.fillText('PRACTICE', 60, 52);
+    }
+
+    // Game mode indicator
+    if (gameMode === 'ship') {
+      ctx.fillStyle = '#e040fb88';
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('SHIP MODE', W-20, 62);
+    }
+
+    // Gravity indicator
+    if (gravityDir === -1) {
+      ctx.fillStyle = '#42a5f588';
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('GRAVITY FLIPPED', W-20, gameMode === 'ship' ? 78 : 62);
+    }
+
+    // Speed indicator
+    if (speedMult !== 1) {
+      const speedLabel = speedMult < 1 ? 'SLOW' : 'FAST';
+      const speedCol = speedMult < 1 ? '#4fc3f788' : '#ff910088';
+      ctx.fillStyle = speedCol;
+      ctx.font = 'bold 11px -apple-system, sans-serif';
+      ctx.textAlign = 'right';
+      const yOff = 62 + (gameMode === 'ship' ? 16 : 0) + (gravityDir === -1 ? 16 : 0);
+      ctx.fillText(speedLabel, W-20, yOff);
     }
   }
 
   if (screenShake > 0) ctx.restore();
 }
-
-// Reset game-over heading when restarting
-const origRestart = startGame;
 
 // ====== GAME LOOP ======
 function loop() { update(); draw(); requestAnimationFrame(loop); }
