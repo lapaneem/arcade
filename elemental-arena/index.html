@@ -25,7 +25,7 @@ canvas{display:block}
 .btn.back:hover{background:rgba(255,255,255,0.15);color:#fff}
 .controls-info{color:#666;font-size:12px;margin-top:18px;text-align:center;line-height:2}
 .controls-info kbd{background:#222;color:#aaa;padding:2px 7px;border-radius:4px;font-size:11px;border:1px solid #444}
-.elem-preview{display:flex;gap:14px;margin:14px 0;flex-wrap:wrap;justify-content:center;max-width:500px}
+.elem-preview{display:flex;gap:14px;margin:14px 0;flex-wrap:wrap;justify-content:center;max-width:600px}
 .elem-preview .ep{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:#888}
 .elem-preview .ep .dot{width:24px;height:24px;border-radius:50%}
 .elem-preview .ep.locked .dot{background:#333!important;box-shadow:none!important}
@@ -35,15 +35,15 @@ canvas{display:block}
 .touch-ctrl{position:absolute;pointer-events:auto;z-index:5;display:none}
 @media(pointer:coarse){.touch-ctrl{display:flex}}
 #touch-joystick{bottom:30px;left:30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1)}
-#touch-elements{bottom:30px;right:16px;gap:8px;flex-direction:row;flex-wrap:wrap;max-width:280px;justify-content:flex-end}
-#touch-elements .te-btn{width:48px;height:48px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;background:rgba(0,0,0,0.4)}
+#touch-elements{bottom:30px;right:16px;gap:6px;flex-direction:row;flex-wrap:wrap;max-width:320px;justify-content:flex-end}
+#touch-elements .te-btn{width:40px;height:40px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;background:rgba(0,0,0,0.4)}
 /* Training grid overlay */
-#training-grid-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:30;flex-direction:column;align-items:center;justify-content:center}
+#training-grid-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:30;flex-direction:column;align-items:center;justify-content:center;overflow-y:auto}
 #training-grid-overlay.show{display:flex}
 .tg-title{font-size:28px;font-weight:900;color:#e040fb;margin-bottom:8px;text-shadow:0 0 20px rgba(224,64,251,0.5)}
 .tg-subtitle{font-size:14px;color:#888;margin-bottom:20px}
-.tg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:480px;margin:0 auto 20px}
-.tg-elem{width:100px;height:110px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:2px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);transition:all 0.2s}
+.tg-grid{display:grid;grid-template-columns:repeat(5,1fr);gap:10px;max-width:560px;margin:0 auto 20px}
+.tg-elem{width:90px;height:100px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:2px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);transition:all 0.2s}
 .tg-elem:hover{background:rgba(255,255,255,0.06)}
 .tg-elem.locked{opacity:0.35;cursor:default}
 .tg-elem.mastered{border-color:rgba(76,175,80,0.5);background:rgba(76,175,80,0.08)}
@@ -78,14 +78,14 @@ canvas{display:block}
     <a href="../index.html" class="btn back">Back</a>
     <h1>Elemental Arena</h1>
     <h2>Master the Elements</h2>
-    <div class="elem-count" id="elem-count-display">4/12 Elements</div>
+    <div class="elem-count" id="elem-count-display">4/20 Elements</div>
     <div class="elem-preview" id="start-elem-preview"></div>
     <p>Wield elements and combine them into devastating combos. Survive endless waves of enemies in the arena!</p>
     <button class="btn" onclick="startGame()">Play</button>
     <button class="btn" onclick="openTrainingGrid()" style="background:linear-gradient(135deg,#7c4dff,#e040fb);box-shadow:0 0 30px rgba(124,77,255,0.3);margin-top:10px;">Training Grounds</button>
     <div class="controls-info">
       <kbd>WASD</kbd> / <kbd>Arrows</kbd> Move &nbsp; <kbd>Mouse</kbd> Aim &nbsp; <kbd>Click</kbd> Cast<br>
-      <kbd>1</kbd>-<kbd>9</kbd>,<kbd>0</kbd>,<kbd>Q</kbd>,<kbd>E</kbd> Select Element<br>
+      <kbd>1</kbd>-<kbd>9</kbd>,<kbd>0</kbd>,<kbd>Q</kbd>,<kbd>E</kbd>,<kbd>R</kbd>,<kbd>T</kbd>,<kbd>F</kbd>,<kbd>G</kbd>,<kbd>Z</kbd>,<kbd>X</kbd>,<kbd>C</kbd>,<kbd>V</kbd> Select Element<br>
       Press two elements quickly for a <strong style="color:#f0a500">COMBO</strong>
     </div>
   </div>
@@ -117,9 +117,9 @@ function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
 resize();addEventListener('resize',resize);
 
 // --- Constants ---
-const ELEM_COLORS=['#e94560','#4fc3f7','#8d6e63','#b2ebf2','#ffd600','#80deea','#9c27b0','#ffeb3b','#76ff03','#7c4dff','#90a4ae','#ff3d00'];
-const ELEM_NAMES=['Fire','Water','Earth','Wind','Lightning','Ice','Shadow','Light','Poison','Gravity','Metal','Lava'];
-const ELEM_KEYS=['1','2','3','4','5','6','7','8','9','0','q','e'];
+const ELEM_COLORS=['#e94560','#4fc3f7','#8d6e63','#b2ebf2','#ffd600','#80deea','#9c27b0','#ffeb3b','#76ff03','#7c4dff','#90a4ae','#ff3d00','#e0e0e0','#b71c1c','#e1bee7','#311b92','#ffc107','#4caf50','#ff1744','#ce93d8'];
+const ELEM_NAMES=['Fire','Water','Earth','Wind','Lightning','Ice','Shadow','Light','Poison','Gravity','Metal','Lava','Time','Blood','Crystal','Void','Storm','Nature','Chaos','Spirit'];
+const ELEM_KEYS=['1','2','3','4','5','6','7','8','9','0','q','e','r','t','f','g','z','x','c','v'];
 const COMBO_NAMES={
   '0_1':'Steam Blast','1_0':'Steam Blast',
   '0_2':'Lava Pool','2_0':'Lava Pool',
@@ -130,7 +130,11 @@ const COMBO_NAMES={
   '4_5':'Frozen Storm','5_4':'Frozen Storm',
   '6_7':'Eclipse','7_6':'Eclipse',
   '8_9':'Black Hole','9_8':'Black Hole',
-  '10_11':'Meteor','11_10':'Meteor'
+  '10_11':'Meteor','11_10':'Meteor',
+  '12_13':'Temporal Drain','13_12':'Temporal Drain',
+  '14_15':'Dimension Rift','15_14':'Dimension Rift',
+  '16_17':'Thundervine','17_16':'Thundervine',
+  '18_19':'Phantom Storm','19_18':'Phantom Storm'
 };
 const COMBO_COLORS={
   'Steam Blast':'#e0e0e0',
@@ -142,7 +146,11 @@ const COMBO_COLORS={
   'Frozen Storm':'#00e5ff',
   'Eclipse':'#311b92',
   'Black Hole':'#4a148c',
-  'Meteor':'#ff6d00'
+  'Meteor':'#ff6d00',
+  'Temporal Drain':'#c62828',
+  'Dimension Rift':'#9c27b0',
+  'Thundervine':'#8bc34a',
+  'Phantom Storm':'#ff5252'
 };
 const ELEM_CD=300, COMBO_CD=1200;
 const PLAYER_SPD=3.5, PLAYER_R=16;
@@ -153,7 +161,11 @@ const UNLOCK_TIERS=[
   [4,5],        // Tier 1: Lightning, Ice (unlock by mastering base 4)
   [6,7],        // Tier 2: Shadow, Light (unlock by mastering Lightning+Ice)
   [8,9],        // Tier 3: Poison, Gravity (unlock by mastering Shadow+Light)
-  [10,11]       // Tier 4: Metal, Lava (unlock by mastering Poison+Gravity)
+  [10,11],      // Tier 4: Metal, Lava (unlock by mastering Poison+Gravity)
+  [12,13],      // Tier 5: Time, Blood (unlock by mastering Metal+Lava)
+  [14,15],      // Tier 6: Crystal, Void (unlock by mastering Time+Blood)
+  [16,17],      // Tier 7: Storm, Nature (unlock by mastering Crystal+Void)
+  [18,19]       // Tier 8: Chaos, Spirit (unlock by mastering Storm+Nature)
 ];
 const MASTERY_NEED=5; // casts needed to master an element in training
 
@@ -230,11 +242,11 @@ function dismissUnlock(){
 
 // --- State ---
 let playing=false, gameOver=false;
-let player, enemies, projectiles, effects, particles, hazards;
+let player, enemies, projectiles, effects, particles, hazards, ghosts;
 let wave, kills, score, spawnTimer, waveEnemiesLeft, waveDelay;
 let keys={}, mouseX=0, mouseY=0, mouseDown=false;
 let queuedElem=-1, queuedTime=0;
-let elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0], comboCDTimer=0;
+let elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0], comboCDTimer=0;
 let screenShake=0, shakeX=0, shakeY=0;
 let trainingMode=false, trainingElem=-1;
 let dt=0, lastTime=0;
@@ -245,10 +257,10 @@ let joyActive=false, joyStartX=0, joyStartY=0, joyDX=0, joyDY=0, joyId=-1;
 // --- Start screen ---
 function updateStartScreen(){
   let count=unlockedElems.length;
-  document.getElementById('elem-count-display').textContent=count+'/12 Elements';
+  document.getElementById('elem-count-display').textContent=count+'/20 Elements';
   let preview=document.getElementById('start-elem-preview');
   preview.innerHTML='';
-  for(let i=0;i<12;i++){
+  for(let i=0;i<20;i++){
     let unlocked=isUnlocked(i);
     preview.innerHTML+=`<div class="ep ${unlocked?'':'locked'}"><div class="dot" style="background:${unlocked?ELEM_COLORS[i]:'#333'};${unlocked?'box-shadow:0 0 12px '+ELEM_COLORS[i]:''}"></div>${unlocked?ELEM_NAMES[i]:'???'}</div>`;
   }
@@ -259,7 +271,7 @@ updateStartScreen();
 function updateTouchElements(){
   let container=document.getElementById('touch-elements');
   container.innerHTML='';
-  for(let i=0;i<12;i++){
+  for(let i=0;i<20;i++){
     if(!isUnlocked(i)) continue;
     let col=ELEM_COLORS[i];
     let label=ELEM_KEYS[i].toUpperCase();
@@ -281,7 +293,7 @@ function renderTrainingGrid(){
   let html=`<div class="tg-title">Training Grounds</div>`;
   html+=`<div class="tg-subtitle">Master elements to unlock new ones. Cast ${MASTERY_NEED} times on dummies to master.</div>`;
   html+=`<div class="tg-grid">`;
-  for(let i=0;i<12;i++){
+  for(let i=0;i<20;i++){
     let unlocked=isUnlocked(i);
     let mastered=isMastered(i);
     let count=masteryCounts[i]||0;
@@ -299,7 +311,11 @@ function renderTrainingGrid(){
   html+=`Master Fire+Water+Earth+Wind -> unlock Lightning+Ice<br>`;
   html+=`Master Lightning+Ice -> unlock Shadow+Light<br>`;
   html+=`Master Shadow+Light -> unlock Poison+Gravity<br>`;
-  html+=`Master Poison+Gravity -> unlock Metal+Lava`;
+  html+=`Master Poison+Gravity -> unlock Metal+Lava<br>`;
+  html+=`Master Metal+Lava -> unlock Time+Blood<br>`;
+  html+=`Master Time+Blood -> unlock Crystal+Void<br>`;
+  html+=`Master Crystal+Void -> unlock Storm+Nature<br>`;
+  html+=`Master Storm+Nature -> unlock Chaos+Spirit`;
   html+=`</div>`;
   html+=`<button class="tg-btn secondary" onclick="closeTrainingGrid()">Back to Menu</button>`;
   el.innerHTML=html;
@@ -313,9 +329,9 @@ function startElemTraining(elemIdx){
   document.getElementById('training-exit').style.display='block';
   playing=true; gameOver=false; trainingMode=true; trainingElem=elemIdx;
   player={x:W/2,y:H/2,hp:999,maxHp:999,iframes:0,r:PLAYER_R};
-  enemies=[];projectiles=[];effects=[];particles=[];hazards=[];
+  enemies=[];projectiles=[];effects=[];particles=[];hazards=[];ghosts=[];
   wave=0;kills=0;score=0;spawnTimer=0;waveEnemiesLeft=0;waveDelay=99999;
-  queuedElem=-1;elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0];comboCDTimer=0;screenShake=0;
+  queuedElem=-1;elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];comboCDTimer=0;screenShake=0;
   spawnTrainingDummies();
   updateTrainingUI();
   updateTouchElements();
@@ -384,9 +400,9 @@ function startGame(){
   closeTrainingGrid();
   playing=true; gameOver=false; trainingMode=false;
   player={x:W/2,y:H/2,hp:10,maxHp:10,iframes:0,r:PLAYER_R};
-  enemies=[];projectiles=[];effects=[];particles=[];hazards=[];
+  enemies=[];projectiles=[];effects=[];particles=[];hazards=[];ghosts=[];
   wave=0;kills=0;score=0;spawnTimer=0;waveEnemiesLeft=0;waveDelay=2000;
-  queuedElem=-1;elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0];comboCDTimer=0;screenShake=0;
+  queuedElem=-1;elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0];comboCDTimer=0;screenShake=0;
   updateTouchElements();
   nextWave();
   lastTime=performance.now();
@@ -425,7 +441,7 @@ addEventListener('keydown',e=>{
   if(!playing||gameOver) return;
   let k=e.key.toLowerCase();
   // element selection by key
-  for(let i=0;i<12;i++){
+  for(let i=0;i<20;i++){
     if(k===ELEM_KEYS[i]&&isUnlocked(i)){
       selectElement(i);
       break;
@@ -551,12 +567,96 @@ function castAttack(){
     trainingTrack('elem',ELEM_NAMES[idx]);
     return;
   }
+  if(idx===12){ // Time - slow zone at target
+    let tx=player.x+Math.cos(angle)*120;
+    let ty=player.y+Math.sin(angle)*120;
+    hazards.push({type:'timeslow',x:tx,y:ty,r:100,life:4000,maxLife:4000,color:'#e0e0e0',slowAmt:0.2});
+    spawnParticles(tx,ty,'#e0e0e0',15,3);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===13){ // Blood - projectile that heals on hit
+    spd=7;dmg=20+wave*2;r=9;extra.bloodHeal=true;
+  }
+  if(idx===14){ // Crystal - shield barrier at target
+    let tx=player.x+Math.cos(angle)*120;
+    let ty=player.y+Math.sin(angle)*120;
+    hazards.push({type:'crystal',x:tx,y:ty,r:30,life:5000,maxLife:5000,color:'#e1bee7'});
+    spawnParticles(tx,ty,'#e1bee7',15,3);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===15){ // Void - teleport enemies near target to edges
+    let tx=player.x+Math.cos(angle)*120;
+    let ty=player.y+Math.sin(angle)*120;
+    for(let j=0;j<enemies.length;j++){
+      let e=enemies[j];
+      let ddx=e.x-tx,ddy=e.y-ty;
+      let d=Math.sqrt(ddx*ddx+ddy*ddy);
+      if(d<80){
+        // teleport to random screen edge
+        let side=Math.random()*4|0;
+        if(side===0){e.x=Math.random()*W;e.y=10}
+        else if(side===1){e.x=W-10;e.y=Math.random()*H}
+        else if(side===2){e.x=Math.random()*W;e.y=H-10}
+        else{e.x=10;e.y=Math.random()*H}
+        spawnParticles(tx,ty,'#311b92',4,3);
+        spawnParticles(e.x,e.y,'#311b92',4,3);
+      }
+    }
+    effects.push({type:'void_flash',x:tx,y:ty,r:80,life:400,maxLife:400,color:'#311b92'});
+    spawnParticles(tx,ty,'#311b92',15,4);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===16){ // Storm - 8 lightning bolts near target
+    let tx=player.x+Math.cos(angle)*120;
+    let ty=player.y+Math.sin(angle)*120;
+    let boltDmg=25+wave*2;
+    for(let b=0;b<8;b++){
+      let bx=tx+(Math.random()-0.5)*200;
+      let by=ty+(Math.random()-0.5)*200;
+      effects.push({type:'storm_bolt',x:bx,y:by,r:40,life:300,maxLife:300,dmg:boltDmg,color:'#ffc107',hit:new Set()});
+      spawnParticles(bx,by,'#ffc107',5,3);
+    }
+    screenShake=6;
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===17){ // Nature - vine trap at target
+    let tx=player.x+Math.cos(angle)*120;
+    let ty=player.y+Math.sin(angle)*120;
+    hazards.push({type:'vine',x:tx,y:ty,r:60,life:5000,maxLife:5000,color:'#4caf50',freezeDuration:3000});
+    spawnParticles(tx,ty,'#4caf50',12,3);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===18){ // Chaos - 6 random projectiles
+    for(let b=0;b<6;b++){
+      let a=Math.random()*Math.PI*2;
+      let s=4+Math.random()*6;
+      projectiles.push({x:player.x,y:player.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:7,dmg:15+wave*2,color:'#ff1744',trail:'#ff5252',life:800,owner:'player',elem:18,chaosExplode:true});
+    }
+    spawnParticles(player.x,player.y,'#ff1744',12,4);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===19){ // Spirit - summon 3 ghosts
+    for(let g=0;g<3;g++){
+      let a=Math.random()*Math.PI*2;
+      ghosts.push({x:player.x+Math.cos(a)*20,y:player.y+Math.sin(a)*20,life:5000,spd:3,dmg:5+wave,color:'#ce93d8',r:10,hitCD:0});
+    }
+    spawnParticles(player.x,player.y,'#ce93d8',12,3);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
 
   let proj={x:player.x,y:player.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r,dmg,color:col,trail,life:800,owner:'player',elem:idx};
   if(extra.chain){proj.chain=extra.chain;proj.chainRange=extra.chainRange}
   if(extra.freeze){proj.freeze=extra.freeze}
   if(extra.pierce){proj.pierce=extra.pierce}
   if(extra.bounceWalls){proj.bounceWalls=extra.bounceWalls;proj.life=1500}
+  if(extra.bloodHeal){proj.bloodHeal=true}
   projectiles.push(proj);
   spawnParticles(player.x+Math.cos(angle)*20,player.y+Math.sin(angle)*20,col,5,2);
   trainingTrack('elem',ELEM_NAMES[idx]);
@@ -623,6 +723,49 @@ function castCombo(name,e1,e2){
     projectiles.push({x:player.x,y:player.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r:22,dmg:80+wave*5,color:'#ff6d00',trail:'#ff3d00',life:1200,owner:'player',elem:-1,meteor:true});
     screenShake=10;
     spawnParticles(player.x,player.y,'#ff6d00',15,4);
+  } else if(name==='Temporal Drain'){
+    // Slows all enemies AND heals 3 HP
+    for(let j=0;j<enemies.length;j++){
+      let e=enemies[j];
+      e.slowed=4000;
+      e.slowAmt=0.2;
+    }
+    player.hp=Math.min(player.maxHp,player.hp+3);
+    effects.push({type:'fullscreen_flash',life:400,maxLife:400,color:'#c62828'});
+    spawnParticles(player.x,player.y,'#e0e0e0',20,4);
+    spawnParticles(player.x,player.y,'#b71c1c',20,4);
+    screenShake=10;
+  } else if(name==='Dimension Rift'){
+    // Crystal barrier that sucks enemies in and damages them
+    hazards.push({type:'crystal',x:tx,y:ty,r:40,life:5000,maxLife:5000,color:'#9c27b0'});
+    effects.push({type:'gravity_well',x:tx,y:ty,r:120,life:4000,maxLife:4000,dmg:8+wave*2,color:'#9c27b0',pullStr:3,tickRate:200,tickTimer:0,hit:new Set()});
+    screenShake=10;
+    spawnParticles(tx,ty,'#e1bee7',20,4);
+    spawnParticles(tx,ty,'#311b92',20,4);
+  } else if(name==='Thundervine'){
+    // Lightning bolts that root enemies where they hit
+    for(let b=0;b<8;b++){
+      let bx=tx+(Math.random()-0.5)*200;
+      let by=ty+(Math.random()-0.5)*200;
+      effects.push({type:'thundervine_bolt',x:bx,y:by,r:45,life:300,maxLife:300,dmg:30+wave*2,color:'#8bc34a',hit:new Set(),freezeDuration:3000});
+      spawnParticles(bx,by,'#ffc107',4,3);
+      spawnParticles(bx,by,'#4caf50',4,3);
+    }
+    screenShake=10;
+  } else if(name==='Phantom Storm'){
+    // Summon 5 ghosts AND fire random projectiles
+    for(let g=0;g<5;g++){
+      let a=Math.random()*Math.PI*2;
+      ghosts.push({x:player.x+Math.cos(a)*20,y:player.y+Math.sin(a)*20,life:5000,spd:3.5,dmg:8+wave,color:'#ff5252',r:11,hitCD:0});
+    }
+    for(let b=0;b<8;b++){
+      let a=Math.random()*Math.PI*2;
+      let s=4+Math.random()*6;
+      projectiles.push({x:player.x,y:player.y,vx:Math.cos(a)*s,vy:Math.sin(a)*s,r:7,dmg:15+wave*2,color:'#ce93d8',trail:'#ff1744',life:800,owner:'player',elem:-1,chaosExplode:true});
+    }
+    spawnParticles(player.x,player.y,'#ce93d8',20,5);
+    spawnParticles(player.x,player.y,'#ff1744',20,5);
+    screenShake=10;
   }
   // Flash combo name
   effects.push({type:'text',x:player.x,y:player.y-40,text:name,color:col,life:1000,maxLife:1000});
@@ -671,7 +814,7 @@ function update(dt){
   if(player.iframes>0)player.iframes-=dt;
 
   // Cooldowns
-  for(let i=0;i<12;i++)if(elemCDs[i]>0)elemCDs[i]=Math.max(0,elemCDs[i]-dt);
+  for(let i=0;i<20;i++)if(elemCDs[i]>0)elemCDs[i]=Math.max(0,elemCDs[i]-dt);
   if(comboCDTimer>0)comboCDTimer=Math.max(0,comboCDTimer-dt);
   // Clear queued if expired
   if(queuedElem>=0&&performance.now()-queuedTime>800)queuedElem=-1;
@@ -700,7 +843,7 @@ function update(dt){
   for(let i=enemies.length-1;i>=0;i--){
     let e=enemies[i];
     if(e.frozen>0){e.frozen-=dt;continue}
-    let spdMul=e.slowed>0?(e.slowed-=dt,0.3):1;
+    let spdMul=e.slowed>0?(e.slowed-=dt,e.slowAmt||0.3):1;
     // Push
     if(e.pushX||e.pushY){
       e.x+=e.pushX*(dt/16);e.y+=e.pushY*(dt/16);
@@ -754,6 +897,7 @@ function update(dt){
       let hd=Math.sqrt((e.x-h.x)**2+(e.y-h.y)**2);
       if(hd<h.r+e.r){
         if(h.type==='mud') e.slowed=100;
+        if(h.type==='timeslow'){e.slowed=100;e.slowAmt=h.slowAmt||0.2}
         if(h.type==='lava'||h.type==='lava2'){
           h.tickTimer-=dt;
           if(h.tickTimer<=0){h.tickTimer=h.tickRate;damageEnemy(i,h.dmg);if(i>=enemies.length)break}
@@ -761,6 +905,12 @@ function update(dt){
         if(h.type==='poison'){
           h.tickTimer-=dt;
           if(h.tickTimer<=0){h.tickTimer=h.tickRate;damageEnemy(i,h.dmg);if(i>=enemies.length)break}
+        }
+        if(h.type==='vine'){
+          if(e.frozen<=0){
+            e.frozen=h.freezeDuration||3000;
+            spawnParticles(e.x,e.y,'#4caf50',6,2);
+          }
         }
       }
     }
@@ -783,6 +933,10 @@ function update(dt){
     if(p.life<=0||p.x<-50||p.x>W+50||p.y<-50||p.y>H+50){
       // Meteor explodes when it expires or goes OOB
       if(p.meteor&&p.life<=0){meteorExplode(p.x,p.y,p.dmg)}
+      // Chaos explode on expiry
+      if(p.chaosExplode&&p.life<=0){
+        spawnParticles(p.x,p.y,p.color,8,3);
+      }
       projectiles.splice(i,1);continue;
     }
 
@@ -793,6 +947,11 @@ function update(dt){
         if(d<p.r+e.r){
           damageEnemy(j,p.dmg);
           if(p.freeze) e.frozen=p.freeze;
+          // Blood heal
+          if(p.bloodHeal&&player){
+            player.hp=Math.min(player.maxHp,player.hp+1);
+            spawnParticles(player.x,player.y,'#b71c1c',3,1);
+          }
           spawnParticles(p.x,p.y,p.color,6,2);
 
           // Lightning chain
@@ -807,17 +966,82 @@ function update(dt){
             break;
           }
 
+          // Chaos explode on hit
+          if(p.chaosExplode){
+            spawnParticles(p.x,p.y,p.color,10,4);
+            // small AoE on explosion
+            for(let k=enemies.length-1;k>=0;k--){
+              if(k===j) continue;
+              let ek=enemies[k];
+              let dk=Math.sqrt((p.x-ek.x)**2+(p.y-ek.y)**2);
+              if(dk<35){damageEnemy(k,p.dmg*0.4)}
+            }
+            projectiles.splice(i,1);
+            break;
+          }
+
           if(p.pierce&&p.pierce>1){p.pierce--;p.dmg*=0.7} else {projectiles.splice(i,1)}
           break;
         }
       }
     } else {
+      // Enemy projectile - check crystal barrier blocking
+      let blocked=false;
+      for(let h of hazards){
+        if(h.type==='crystal'){
+          let hd=Math.sqrt((p.x-h.x)**2+(p.y-h.y)**2);
+          if(hd<p.r+h.r){
+            spawnParticles(p.x,p.y,'#e1bee7',4,2);
+            projectiles.splice(i,1);
+            blocked=true;
+            break;
+          }
+        }
+      }
+      if(blocked) continue;
       let d=Math.sqrt((p.x-player.x)**2+(p.y-player.y)**2);
       if(d<p.r+player.r&&player.iframes<=0){
         damagePlayer(p.dmg);
         projectiles.splice(i,1);
       }
     }
+  }
+
+  // Ghosts
+  for(let i=ghosts.length-1;i>=0;i--){
+    let g=ghosts[i];
+    g.life-=dt;
+    if(g.hitCD>0) g.hitCD-=dt;
+    if(g.life<=0){
+      spawnParticles(g.x,g.y,g.color,6,2);
+      ghosts.splice(i,1);
+      continue;
+    }
+    // Chase nearest enemy
+    let bestD=Infinity,bestE=null;
+    for(let e of enemies){
+      let dd=Math.sqrt((g.x-e.x)**2+(g.y-e.y)**2);
+      if(dd<bestD){bestD=dd;bestE=e}
+    }
+    if(bestE){
+      let dx=bestE.x-g.x,dy=bestE.y-g.y;
+      let d=Math.sqrt(dx*dx+dy*dy);
+      if(d>0){
+        g.x+=dx/d*g.spd*(dt/16);
+        g.y+=dy/d*g.spd*(dt/16);
+      }
+      // Contact damage
+      if(d<g.r+bestE.r&&g.hitCD<=0){
+        g.hitCD=500;
+        let idx=enemies.indexOf(bestE);
+        if(idx>=0){
+          damageEnemy(idx,g.dmg);
+          spawnParticles(g.x,g.y,g.color,4,2);
+        }
+      }
+    }
+    // Ambient particles
+    if(Math.random()<0.15) particles.push({x:g.x+(Math.random()-0.5)*10,y:g.y+(Math.random()-0.5)*10,vx:(Math.random()-0.5)*0.5,vy:(Math.random()-0.5)*0.5,r:2,color:g.color,life:200,maxLife:200,alpha:0.4});
   }
 
   // Effects
@@ -894,6 +1118,31 @@ function update(dt){
         }
       }
       if(Math.random()<0.3) particles.push({x:ef.x+(Math.random()-0.5)*ef.r*2,y:ef.y+(Math.random()-0.5)*ef.r*2,vx:(Math.random()-0.5)*3,vy:(Math.random()-0.5)*3,r:2+Math.random()*3,color:'#d4a04a',life:300,maxLife:300,alpha:0.7});
+    }
+    if(ef.type==='storm_bolt'){
+      // Instant AoE damage
+      for(let j=enemies.length-1;j>=0;j--){
+        let e=enemies[j];
+        if(ef.hit.has(j))continue;
+        let d=Math.sqrt((ef.x-e.x)**2+(ef.y-e.y)**2);
+        if(d<ef.r+e.r){ef.hit.add(j);damageEnemy(j,ef.dmg)}
+      }
+    }
+    if(ef.type==='thundervine_bolt'){
+      // Lightning + root
+      for(let j=enemies.length-1;j>=0;j--){
+        let e=enemies[j];
+        if(ef.hit.has(j))continue;
+        let d=Math.sqrt((ef.x-e.x)**2+(ef.y-e.y)**2);
+        if(d<ef.r+e.r){
+          ef.hit.add(j);
+          damageEnemy(j,ef.dmg);
+          if(j<enemies.length) enemies[j].frozen=ef.freezeDuration||3000;
+        }
+      }
+    }
+    if(ef.type==='void_flash'){
+      // visual only, fades out
     }
     if(ef.type==='text'){
       ef.y-=0.5*(dt/16);
@@ -1034,6 +1283,60 @@ function draw(){
         X.fillStyle=`rgba(118,255,3,${0.5*alpha})`;X.beginPath();X.arc(bx,by,1+Math.random()*2,0,Math.PI*2);X.fill();
       }
     }
+    if(h.type==='timeslow'){
+      let g=X.createRadialGradient(h.x,h.y,0,h.x,h.y,h.r);
+      g.addColorStop(0,`rgba(224,224,224,${0.15*alpha})`);
+      g.addColorStop(0.5,`rgba(224,224,224,${0.08*alpha})`);
+      g.addColorStop(1,`rgba(224,224,224,0)`);
+      X.fillStyle=g;X.beginPath();X.arc(h.x,h.y,h.r,0,Math.PI*2);X.fill();
+      // Clock-like rings
+      X.strokeStyle=`rgba(224,224,224,${0.25*alpha})`;X.lineWidth=1;
+      let t=performance.now()/1000;
+      X.beginPath();X.arc(h.x,h.y,h.r*0.6,0,Math.PI*2);X.stroke();
+      // Clock hand
+      X.beginPath();X.moveTo(h.x,h.y);
+      X.lineTo(h.x+Math.cos(t*2)*h.r*0.4,h.y+Math.sin(t*2)*h.r*0.4);
+      X.stroke();
+    }
+    if(h.type==='crystal'){
+      // Crystal barrier
+      X.globalAlpha=alpha;
+      X.fillStyle=`rgba(225,190,231,${0.4*alpha})`;
+      X.strokeStyle=`rgba(225,190,231,${0.7*alpha})`;X.lineWidth=3;
+      // Draw as hexagonal shape
+      X.beginPath();
+      for(let s=0;s<6;s++){
+        let a=s*Math.PI/3;
+        let px=h.x+Math.cos(a)*h.r;
+        let py=h.y+Math.sin(a)*h.r;
+        s===0?X.moveTo(px,py):X.lineTo(px,py);
+      }
+      X.closePath();X.fill();X.stroke();
+      // Inner glow
+      X.shadowColor='#e1bee7';X.shadowBlur=15;
+      X.fillStyle=`rgba(225,190,231,${0.2*alpha})`;
+      X.beginPath();X.arc(h.x,h.y,h.r*0.5,0,Math.PI*2);X.fill();
+      X.shadowBlur=0;
+      X.globalAlpha=1;
+    }
+    if(h.type==='vine'){
+      let g=X.createRadialGradient(h.x,h.y,0,h.x,h.y,h.r);
+      g.addColorStop(0,`rgba(76,175,80,${0.3*alpha})`);
+      g.addColorStop(0.6,`rgba(56,142,60,${0.2*alpha})`);
+      g.addColorStop(1,`rgba(56,142,60,0)`);
+      X.fillStyle=g;X.beginPath();X.arc(h.x,h.y,h.r,0,Math.PI*2);X.fill();
+      // Draw vine tendrils
+      X.strokeStyle=`rgba(76,175,80,${0.5*alpha})`;X.lineWidth=2;
+      let t=performance.now()/500;
+      for(let v=0;v<5;v++){
+        let a=v*Math.PI*2/5+t*0.3;
+        X.beginPath();
+        X.moveTo(h.x,h.y);
+        let cr=h.r*0.8;
+        X.quadraticCurveTo(h.x+Math.cos(a+0.5)*cr*0.5,h.y+Math.sin(a+0.5)*cr*0.5,h.x+Math.cos(a)*cr,h.y+Math.sin(a)*cr);
+        X.stroke();
+      }
+    }
   }
 
   // Effects
@@ -1096,6 +1399,32 @@ function draw(){
         }
         X.stroke();
       }
+    }
+    if(ef.type==='storm_bolt'||ef.type==='thundervine_bolt'){
+      // Lightning bolt visual
+      let bCol=ef.type==='thundervine_bolt'?'rgba(139,195,74,':'rgba(255,193,7,';
+      X.fillStyle=bCol+`${0.4*alpha})`;
+      X.beginPath();X.arc(ef.x,ef.y,ef.r,0,Math.PI*2);X.fill();
+      // Bright center
+      X.fillStyle=bCol+`${0.8*alpha})`;
+      X.beginPath();X.arc(ef.x,ef.y,ef.r*0.3,0,Math.PI*2);X.fill();
+      // Lightning streaks
+      X.strokeStyle=bCol+`${0.7*alpha})`;X.lineWidth=2;
+      X.shadowColor=ef.color;X.shadowBlur=10;
+      for(let s=0;s<3;s++){
+        let a=Math.random()*Math.PI*2;
+        X.beginPath();X.moveTo(ef.x,ef.y);
+        X.lineTo(ef.x+Math.cos(a)*ef.r*0.8+(Math.random()-0.5)*10,ef.y+Math.sin(a)*ef.r*0.8+(Math.random()-0.5)*10);
+        X.stroke();
+      }
+      X.shadowBlur=0;
+    }
+    if(ef.type==='void_flash'){
+      let g=X.createRadialGradient(ef.x,ef.y,0,ef.x,ef.y,ef.r);
+      g.addColorStop(0,`rgba(49,27,146,${0.6*alpha})`);
+      g.addColorStop(0.5,`rgba(49,27,146,${0.3*alpha})`);
+      g.addColorStop(1,`rgba(0,0,0,0)`);
+      X.fillStyle=g;X.beginPath();X.arc(ef.x,ef.y,ef.r,0,Math.PI*2);X.fill();
     }
     if(ef.type==='lightning_arc'){
       X.strokeStyle=`rgba(255,214,0,${alpha})`;
@@ -1162,6 +1491,21 @@ function draw(){
     X.globalAlpha=1;
   }
 
+  // Ghosts
+  for(let g of ghosts){
+    let gAlpha=0.5+0.2*Math.sin(performance.now()/200);
+    X.globalAlpha=gAlpha*(g.life/5000);
+    X.fillStyle=g.color;
+    X.shadowColor=g.color;X.shadowBlur=15;
+    X.beginPath();X.arc(g.x,g.y,g.r,0,Math.PI*2);X.fill();
+    X.shadowBlur=0;
+    // Inner face
+    X.fillStyle='rgba(255,255,255,0.4)';
+    X.beginPath();X.arc(g.x-3,g.y-2,2,0,Math.PI*2);X.fill();
+    X.beginPath();X.arc(g.x+3,g.y-2,2,0,Math.PI*2);X.fill();
+    X.globalAlpha=1;
+  }
+
   // Projectiles
   for(let p of projectiles){
     X.fillStyle=p.color;
@@ -1221,7 +1565,7 @@ function draw(){
   // Element bar - dynamic based on unlocked elements
   let unlocked=unlockedElems.slice().sort((a,b)=>a-b);
   let numElems=unlocked.length;
-  let elemSpacing=48;
+  let elemSpacing=Math.min(48,Math.max(32,(W-60)/numElems));
   let barW=Math.max(numElems*elemSpacing+16,100);
   let barH=52;
   let barX=(W-barW)/2,barY=H-barH-16;
