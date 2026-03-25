@@ -174,7 +174,7 @@ function loadUnlocked(){
     let d=JSON.parse(localStorage.getItem('elemental-unlocked'));
     if(d&&Array.isArray(d)&&d.length>0) return d;
   }catch(e){}
-  return [0,1,2,3];
+  return [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19];
 }
 function saveUnlocked(){localStorage.setItem('elemental-unlocked',JSON.stringify(unlockedElems))}
 function loadMastered(){
