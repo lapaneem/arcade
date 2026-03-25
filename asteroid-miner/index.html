@@ -82,6 +82,16 @@
     .hud-crystals { font-size: 16px; font-weight: 700; color: #ffd600; }
     .hud-best { font-size: 12px; color: rgba(255,214,0,0.3); margin-top: 2px; }
     .hud-hp { font-size: 16px; font-weight: 700; margin-top: 4px; color: #ff6d00; }
+    #shop-btn {
+      position: fixed; bottom: 16px; right: 16px; z-index: 15;
+      padding: 8px 18px; border: 2px solid rgba(255,214,0,0.4); border-radius: 20px;
+      background: rgba(10,10,30,0.8); color: #ffd600; font-size: 13px; font-weight: 700;
+      cursor: pointer; display: none; letter-spacing: 1px; text-transform: uppercase;
+      -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+      transition: transform 0.15s, border-color 0.2s;
+    }
+    #shop-btn:hover { transform: scale(1.05); border-color: rgba(255,214,0,0.7); }
+    #shop-btn.active { display: block; }
 
     .upgrade-bar {
       display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; max-width: 420px;
@@ -143,6 +153,8 @@
     <button class="btn btn-sm btn-ghost" id="menu-btn">MENU</button>
   </div>
 </div>
+
+<button id="shop-btn">Shop</button>
 
 <div class="overlay hidden" id="upgrade-screen">
   <h1 style="font-size:32px;">Upgrades</h1>
@@ -417,7 +429,11 @@ document.getElementById('menu-btn').addEventListener('click', showMenu);
 document.getElementById('continue-btn').addEventListener('click', () => {
   document.getElementById('upgrade-screen').classList.add('hidden');
   gameRunning = true;
-  spawnWave();
+  // Only spawn wave if no asteroids left (came from wave clear)
+  if (asteroids.length === 0) spawnWave();
+});
+document.getElementById('shop-btn').addEventListener('click', () => {
+  if (gameRunning) showUpgrades();
 });
 
 function showMenu() {
@@ -426,6 +442,7 @@ function showMenu() {
   document.getElementById('game-over').classList.add('hidden');
   document.getElementById('upgrade-screen').classList.add('hidden');
   document.getElementById('hud').classList.remove('active');
+  document.getElementById('shop-btn').classList.remove('active');
 }
 
 function startGame() {
@@ -451,6 +468,7 @@ function startGame() {
   document.getElementById('game-over').classList.add('hidden');
   document.getElementById('upgrade-screen').classList.add('hidden');
   document.getElementById('hud').classList.add('active');
+  document.getElementById('shop-btn').classList.add('active');
   updateHUD();
 }
 
@@ -593,6 +611,7 @@ function fireLaser() {
 // --- Die ---
 function die() {
   dead = true; gameRunning = false; screenShake = 20;
+  document.getElementById('shop-btn').classList.remove('active');
   spawnExplosion(ship.x, ship.z, 0xffd600, 30);
   spawnExplosion(ship.x, ship.z, 0xff6d00, 20);
   shipMesh.visible = false;
