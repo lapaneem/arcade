@@ -12,7 +12,7 @@
 body{background:#0a0a1a;overflow:hidden;touch-action:none;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif}
 canvas{display:block}
 #ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;z-index:2}
-.overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);pointer-events:auto;z-index:10}
+.overlay{position:absolute;top:0;left:0;width:100%;height:100%;display:flex;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);pointer-events:auto;z-index:10;overflow-y:auto}
 .overlay.hidden{display:none}
 .overlay h1{font-size:44px;font-weight:900;margin-bottom:10px;background:linear-gradient(135deg,#e94560,#f0a500,#4fc3f7,#66bb6a);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
 .overlay h2{color:#4fc3f7;font-size:26px;margin-bottom:12px}
@@ -25,15 +25,50 @@ canvas{display:block}
 .btn.back:hover{background:rgba(255,255,255,0.15);color:#fff}
 .controls-info{color:#666;font-size:12px;margin-top:18px;text-align:center;line-height:2}
 .controls-info kbd{background:#222;color:#aaa;padding:2px 7px;border-radius:4px;font-size:11px;border:1px solid #444}
-.elem-preview{display:flex;gap:14px;margin:14px 0}
+.elem-preview{display:flex;gap:14px;margin:14px 0;flex-wrap:wrap;justify-content:center;max-width:500px}
 .elem-preview .ep{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:11px;color:#888}
 .elem-preview .ep .dot{width:24px;height:24px;border-radius:50%}
+.elem-preview .ep.locked .dot{background:#333!important;box-shadow:none!important}
+.elem-preview .ep.locked{color:#444}
+.elem-count{color:#f0a500;font-size:16px;font-weight:700;margin:6px 0}
 /* Touch controls */
 .touch-ctrl{position:absolute;pointer-events:auto;z-index:5;display:none}
 @media(pointer:coarse){.touch-ctrl{display:flex}}
 #touch-joystick{bottom:30px;left:30px;width:120px;height:120px;border-radius:50%;background:rgba(255,255,255,0.05);border:2px solid rgba(255,255,255,0.1)}
-#touch-elements{bottom:30px;right:16px;gap:10px;flex-direction:row}
-#touch-elements .te-btn{width:56px;height:56px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:20px;font-weight:700;background:rgba(0,0,0,0.4)}
+#touch-elements{bottom:30px;right:16px;gap:8px;flex-direction:row;flex-wrap:wrap;max-width:280px;justify-content:flex-end}
+#touch-elements .te-btn{width:48px;height:48px;border-radius:50%;border:2px solid;display:flex;align-items:center;justify-content:center;font-size:16px;font-weight:700;background:rgba(0,0,0,0.4)}
+/* Training grid overlay */
+#training-grid-overlay{display:none;position:fixed;top:0;left:0;width:100%;height:100%;background:rgba(0,0,0,0.92);z-index:30;flex-direction:column;align-items:center;justify-content:center}
+#training-grid-overlay.show{display:flex}
+.tg-title{font-size:28px;font-weight:900;color:#e040fb;margin-bottom:8px;text-shadow:0 0 20px rgba(224,64,251,0.5)}
+.tg-subtitle{font-size:14px;color:#888;margin-bottom:20px}
+.tg-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;max-width:480px;margin:0 auto 20px}
+.tg-elem{width:100px;height:110px;border-radius:12px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;cursor:pointer;border:2px solid rgba(255,255,255,0.1);background:rgba(255,255,255,0.03);transition:all 0.2s}
+.tg-elem:hover{background:rgba(255,255,255,0.06)}
+.tg-elem.locked{opacity:0.35;cursor:default}
+.tg-elem.mastered{border-color:rgba(76,175,80,0.5);background:rgba(76,175,80,0.08)}
+.tg-elem.active{border-color:rgba(224,64,251,0.7);background:rgba(224,64,251,0.1)}
+.tg-elem .tge-dot{width:32px;height:32px;border-radius:50%}
+.tg-elem.locked .tge-dot{background:#333!important;box-shadow:none!important}
+.tg-elem .tge-name{font-size:12px;color:#ccc;font-weight:700}
+.tg-elem.locked .tge-name{color:#555}
+.tg-elem .tge-status{font-size:10px;color:#4caf50}
+.tg-elem.locked .tge-status{color:#555}
+.tg-elem .tge-lock{font-size:18px}
+.tg-btn{padding:10px 30px;font-size:16px;font-weight:700;border:none;border-radius:10px;cursor:pointer;margin:6px;color:#000;background:linear-gradient(135deg,#e040fb,#7c4dff);transition:transform 0.15s}
+.tg-btn:hover{transform:scale(1.05)}
+.tg-btn.secondary{background:rgba(255,255,255,0.1);color:#aaa;border:1px solid rgba(255,255,255,0.15)}
+/* Unlock flash */
+#unlock-flash{display:none;position:fixed;top:0;left:0;width:100%;height:100%;z-index:40;flex-direction:column;align-items:center;justify-content:center;background:rgba(0,0,0,0.9);pointer-events:auto}
+#unlock-flash.show{display:flex}
+#unlock-flash .uf-title{font-size:36px;font-weight:900;color:#ffd600;text-shadow:0 0 40px rgba(255,214,0,0.6);margin-bottom:12px;animation:ufPulse 0.6s ease-in-out infinite alternate}
+#unlock-flash .uf-elems{display:flex;gap:20px;margin:16px 0}
+#unlock-flash .uf-elem{display:flex;flex-direction:column;align-items:center;gap:8px}
+#unlock-flash .uf-dot{width:48px;height:48px;border-radius:50%;animation:ufGlow 1s ease-in-out infinite alternate}
+#unlock-flash .uf-name{font-size:16px;font-weight:700;color:#fff}
+#unlock-flash .uf-dismiss{margin-top:24px;padding:12px 36px;font-size:16px;font-weight:700;border:2px solid #ffd600;border-radius:10px;background:transparent;color:#ffd600;cursor:pointer}
+@keyframes ufPulse{from{transform:scale(1)}to{transform:scale(1.05)}}
+@keyframes ufGlow{from{box-shadow:0 0 20px currentColor}to{box-shadow:0 0 40px currentColor,0 0 60px currentColor}}
 </style>
 </head>
 <body>
@@ -43,18 +78,14 @@ canvas{display:block}
     <a href="../index.html" class="btn back">Back</a>
     <h1>Elemental Arena</h1>
     <h2>Master the Elements</h2>
-    <div class="elem-preview">
-      <div class="ep"><div class="dot" style="background:#e94560;box-shadow:0 0 12px #e94560"></div>Fire</div>
-      <div class="ep"><div class="dot" style="background:#4fc3f7;box-shadow:0 0 12px #4fc3f7"></div>Water</div>
-      <div class="ep"><div class="dot" style="background:#8d6e63;box-shadow:0 0 12px #8d6e63"></div>Earth</div>
-      <div class="ep"><div class="dot" style="background:#b2ebf2;box-shadow:0 0 12px #b2ebf2"></div>Wind</div>
-    </div>
-    <p>Wield 4 elements and combine them into devastating combos. Survive endless waves of enemies in the arena!</p>
+    <div class="elem-count" id="elem-count-display">4/12 Elements</div>
+    <div class="elem-preview" id="start-elem-preview"></div>
+    <p>Wield elements and combine them into devastating combos. Survive endless waves of enemies in the arena!</p>
     <button class="btn" onclick="startGame()">Play</button>
-    <button class="btn" onclick="startTraining()" style="background:linear-gradient(135deg,#7c4dff,#e040fb);box-shadow:0 0 30px rgba(124,77,255,0.3);margin-top:10px;">Training Grounds</button>
+    <button class="btn" onclick="openTrainingGrid()" style="background:linear-gradient(135deg,#7c4dff,#e040fb);box-shadow:0 0 30px rgba(124,77,255,0.3);margin-top:10px;">Training Grounds</button>
     <div class="controls-info">
       <kbd>WASD</kbd> / <kbd>Arrows</kbd> Move &nbsp; <kbd>Mouse</kbd> Aim &nbsp; <kbd>Click</kbd> Cast<br>
-      <kbd>1</kbd> Fire &nbsp; <kbd>2</kbd> Water &nbsp; <kbd>3</kbd> Earth &nbsp; <kbd>4</kbd> Wind<br>
+      <kbd>1</kbd>-<kbd>9</kbd>,<kbd>0</kbd>,<kbd>Q</kbd>,<kbd>E</kbd> Select Element<br>
       Press two elements quickly for a <strong style="color:#f0a500">COMBO</strong>
     </div>
   </div>
@@ -71,12 +102,13 @@ canvas{display:block}
   </div>
   <button id="training-exit" style="display:none;position:fixed;top:12px;right:12px;z-index:20;padding:8px 16px;border:2px solid rgba(224,64,251,0.4);border-radius:20px;background:rgba(10,10,30,0.8);color:#e040fb;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;" onclick="exitTraining()">EXIT</button>
   <div id="touch-joystick" class="touch-ctrl"></div>
-  <div id="touch-elements" class="touch-ctrl">
-    <div class="te-btn" style="border-color:#e94560;color:#e94560" ontouchstart="touchElem(0,event)" onmousedown="touchElem(0,event)">1</div>
-    <div class="te-btn" style="border-color:#4fc3f7;color:#4fc3f7" ontouchstart="touchElem(1,event)" onmousedown="touchElem(1,event)">2</div>
-    <div class="te-btn" style="border-color:#8d6e63;color:#8d6e63" ontouchstart="touchElem(2,event)" onmousedown="touchElem(2,event)">3</div>
-    <div class="te-btn" style="border-color:#b2ebf2;color:#b2ebf2" ontouchstart="touchElem(3,event)" onmousedown="touchElem(3,event)">4</div>
-  </div>
+  <div id="touch-elements" class="touch-ctrl"></div>
+</div>
+<div id="training-grid-overlay"></div>
+<div id="unlock-flash">
+  <div class="uf-title">NEW ELEMENT UNLOCKED!</div>
+  <div class="uf-elems" id="uf-elems"></div>
+  <button class="uf-dismiss" onclick="dismissUnlock()">Continue</button>
 </div>
 <script>
 const C=document.getElementById('c'),X=C.getContext('2d');
@@ -85,15 +117,20 @@ function resize(){W=C.width=innerWidth;H=C.height=innerHeight}
 resize();addEventListener('resize',resize);
 
 // --- Constants ---
-const ELEM_COLORS=['#e94560','#4fc3f7','#8d6e63','#b2ebf2'];
-const ELEM_NAMES=['Fire','Water','Earth','Wind'];
+const ELEM_COLORS=['#e94560','#4fc3f7','#8d6e63','#b2ebf2','#ffd600','#80deea','#9c27b0','#ffeb3b','#76ff03','#7c4dff','#90a4ae','#ff3d00'];
+const ELEM_NAMES=['Fire','Water','Earth','Wind','Lightning','Ice','Shadow','Light','Poison','Gravity','Metal','Lava'];
+const ELEM_KEYS=['1','2','3','4','5','6','7','8','9','0','q','e'];
 const COMBO_NAMES={
-  '01':'Steam Blast','10':'Steam Blast',
-  '02':'Lava Pool','20':'Lava Pool',
-  '03':'Firestorm','30':'Firestorm',
-  '12':'Mud Trap','21':'Mud Trap',
-  '13':'Ice Shard','31':'Ice Shard',
-  '23':'Sandstorm','32':'Sandstorm'
+  '0_1':'Steam Blast','1_0':'Steam Blast',
+  '0_2':'Lava Pool','2_0':'Lava Pool',
+  '0_3':'Firestorm','3_0':'Firestorm',
+  '1_2':'Mud Trap','2_1':'Mud Trap',
+  '1_3':'Ice Shard','3_1':'Ice Shard',
+  '2_3':'Sandstorm','3_2':'Sandstorm',
+  '4_5':'Frozen Storm','5_4':'Frozen Storm',
+  '6_7':'Eclipse','7_6':'Eclipse',
+  '8_9':'Black Hole','9_8':'Black Hole',
+  '10_11':'Meteor','11_10':'Meteor'
 };
 const COMBO_COLORS={
   'Steam Blast':'#e0e0e0',
@@ -101,10 +138,95 @@ const COMBO_COLORS={
   'Firestorm':'#ff7043',
   'Mud Trap':'#795548',
   'Ice Shard':'#80deea',
-  'Sandstorm':'#d4a04a'
+  'Sandstorm':'#d4a04a',
+  'Frozen Storm':'#00e5ff',
+  'Eclipse':'#311b92',
+  'Black Hole':'#4a148c',
+  'Meteor':'#ff6d00'
 };
 const ELEM_CD=300, COMBO_CD=1200;
 const PLAYER_SPD=3.5, PLAYER_R=16;
+
+// --- Unlock System ---
+const UNLOCK_TIERS=[
+  [0,1,2,3],    // Tier 0: base (always unlocked)
+  [4,5],        // Tier 1: Lightning, Ice (unlock by mastering base 4)
+  [6,7],        // Tier 2: Shadow, Light (unlock by mastering Lightning+Ice)
+  [8,9],        // Tier 3: Poison, Gravity (unlock by mastering Shadow+Light)
+  [10,11]       // Tier 4: Metal, Lava (unlock by mastering Poison+Gravity)
+];
+const MASTERY_NEED=5; // casts needed to master an element in training
+
+function loadUnlocked(){
+  try{
+    let d=JSON.parse(localStorage.getItem('elemental-unlocked'));
+    if(d&&Array.isArray(d)&&d.length>0) return d;
+  }catch(e){}
+  return [0,1,2,3];
+}
+function saveUnlocked(){localStorage.setItem('elemental-unlocked',JSON.stringify(unlockedElems))}
+function loadMastered(){
+  try{
+    let d=JSON.parse(localStorage.getItem('elemental-mastered'));
+    if(d&&Array.isArray(d)) return d;
+  }catch(e){}
+  return [];
+}
+function saveMastered(){localStorage.setItem('elemental-mastered',JSON.stringify(masteredElems))}
+function loadMasteryCounts(){
+  try{
+    let d=JSON.parse(localStorage.getItem('elemental-mastery-counts'));
+    if(d&&typeof d==='object') return d;
+  }catch(e){}
+  return {};
+}
+function saveMasteryCounts(){localStorage.setItem('elemental-mastery-counts',JSON.stringify(masteryCounts))}
+
+let unlockedElems=loadUnlocked();
+let masteredElems=loadMastered();
+let masteryCounts=loadMasteryCounts();
+
+function isUnlocked(idx){return unlockedElems.includes(idx)}
+function isMastered(idx){return masteredElems.includes(idx)}
+
+function checkTierUnlocks(){
+  let newlyUnlocked=[];
+  for(let t=1;t<UNLOCK_TIERS.length;t++){
+    let prevTier=UNLOCK_TIERS[t-1];
+    let thisTier=UNLOCK_TIERS[t];
+    let allPrevMastered=prevTier.every(e=>isMastered(e));
+    if(allPrevMastered){
+      for(let e of thisTier){
+        if(!isUnlocked(e)){
+          unlockedElems.push(e);
+          newlyUnlocked.push(e);
+        }
+      }
+    }
+  }
+  if(newlyUnlocked.length>0){
+    saveUnlocked();
+    showUnlockFlash(newlyUnlocked);
+  }
+  return newlyUnlocked;
+}
+
+function showUnlockFlash(elems){
+  let container=document.getElementById('uf-elems');
+  container.innerHTML='';
+  for(let e of elems){
+    container.innerHTML+=`<div class="uf-elem"><div class="uf-dot" style="background:${ELEM_COLORS[e]};color:${ELEM_COLORS[e]}"></div><div class="uf-name">${ELEM_NAMES[e]}</div></div>`;
+  }
+  document.getElementById('unlock-flash').classList.add('show');
+}
+function dismissUnlock(){
+  document.getElementById('unlock-flash').classList.remove('show');
+  // refresh training grid if open
+  if(document.getElementById('training-grid-overlay').classList.contains('show')){
+    renderTrainingGrid();
+  }
+  updateStartScreen();
+}
 
 // --- State ---
 let playing=false, gameOver=false;
@@ -112,43 +234,100 @@ let player, enemies, projectiles, effects, particles, hazards;
 let wave, kills, score, spawnTimer, waveEnemiesLeft, waveDelay;
 let keys={}, mouseX=0, mouseY=0, mouseDown=false;
 let queuedElem=-1, queuedTime=0;
-let elemCDs=[0,0,0,0], comboCDTimer=0;
+let elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0], comboCDTimer=0;
 let screenShake=0, shakeX=0, shakeY=0;
-let trainingMode=false, trainingStep=0, trainingCounts={};
-const TRAINING_STEPS=[
-  {elem:0, name:'Fire', need:3, desc:'Cast Fire 3 times (press 1, then click)'},
-  {elem:1, name:'Water', need:3, desc:'Cast Water 3 times (press 2, then click)'},
-  {elem:2, name:'Earth', need:3, desc:'Cast Earth 3 times (press 3, then click)'},
-  {elem:3, name:'Wind', need:3, desc:'Cast Wind 3 times (press 4, then click)'},
-  {combo:'Steam Blast', need:2, desc:'Combo: Press 1 then 2 quickly (Fire+Water)'},
-  {combo:'Lava Pool', need:2, desc:'Combo: Press 1 then 3 quickly (Fire+Earth)'},
-  {combo:'Firestorm', need:2, desc:'Combo: Press 1 then 4 quickly (Fire+Wind)'},
-  {combo:'Mud Trap', need:2, desc:'Combo: Press 2 then 3 quickly (Water+Earth)'},
-  {combo:'Ice Shard', need:2, desc:'Combo: Press 2 then 4 quickly (Water+Wind)'},
-  {combo:'Sandstorm', need:2, desc:'Combo: Press 3 then 4 quickly (Earth+Wind)'},
-];
+let trainingMode=false, trainingElem=-1;
 let dt=0, lastTime=0;
 let camX=0, camY=0;
 // joystick
 let joyActive=false, joyStartX=0, joyStartY=0, joyDX=0, joyDY=0, joyId=-1;
 
-function startTraining(){
+// --- Start screen ---
+function updateStartScreen(){
+  let count=unlockedElems.length;
+  document.getElementById('elem-count-display').textContent=count+'/12 Elements';
+  let preview=document.getElementById('start-elem-preview');
+  preview.innerHTML='';
+  for(let i=0;i<12;i++){
+    let unlocked=isUnlocked(i);
+    preview.innerHTML+=`<div class="ep ${unlocked?'':'locked'}"><div class="dot" style="background:${unlocked?ELEM_COLORS[i]:'#333'};${unlocked?'box-shadow:0 0 12px '+ELEM_COLORS[i]:''}"></div>${unlocked?ELEM_NAMES[i]:'???'}</div>`;
+  }
+}
+updateStartScreen();
+
+// --- Touch elements ---
+function updateTouchElements(){
+  let container=document.getElementById('touch-elements');
+  container.innerHTML='';
+  for(let i=0;i<12;i++){
+    if(!isUnlocked(i)) continue;
+    let col=ELEM_COLORS[i];
+    let label=ELEM_KEYS[i].toUpperCase();
+    container.innerHTML+=`<div class="te-btn" style="border-color:${col};color:${col}" ontouchstart="touchElem(${i},event)" onmousedown="touchElem(${i},event)">${label}</div>`;
+  }
+}
+updateTouchElements();
+
+// --- Training Grid ---
+function openTrainingGrid(){
+  renderTrainingGrid();
+  document.getElementById('training-grid-overlay').classList.add('show');
+}
+function closeTrainingGrid(){
+  document.getElementById('training-grid-overlay').classList.remove('show');
+}
+function renderTrainingGrid(){
+  let el=document.getElementById('training-grid-overlay');
+  let html=`<div class="tg-title">Training Grounds</div>`;
+  html+=`<div class="tg-subtitle">Master elements to unlock new ones. Cast ${MASTERY_NEED} times on dummies to master.</div>`;
+  html+=`<div class="tg-grid">`;
+  for(let i=0;i<12;i++){
+    let unlocked=isUnlocked(i);
+    let mastered=isMastered(i);
+    let count=masteryCounts[i]||0;
+    let cls=!unlocked?'locked':(mastered?'mastered':'');
+    let statusText=!unlocked?'Locked':(mastered?'Mastered':count+'/'+MASTERY_NEED);
+    html+=`<div class="tg-elem ${cls}" onclick="${unlocked&&!mastered?'startElemTraining('+i+')':''}" data-elem="${i}">`;
+    html+=`<div class="tge-dot" style="background:${ELEM_COLORS[i]};box-shadow:0 0 12px ${ELEM_COLORS[i]}"></div>`;
+    html+=`<div class="tge-name">${unlocked?ELEM_NAMES[i]:'???'}</div>`;
+    html+=`<div class="tge-status">${!unlocked?'&#128274;':statusText}</div>`;
+    html+=`</div>`;
+  }
+  html+=`</div>`;
+  // Tier unlock info
+  html+=`<div style="color:#666;font-size:12px;margin-bottom:12px;text-align:center;line-height:1.8">`;
+  html+=`Master Fire+Water+Earth+Wind -> unlock Lightning+Ice<br>`;
+  html+=`Master Lightning+Ice -> unlock Shadow+Light<br>`;
+  html+=`Master Shadow+Light -> unlock Poison+Gravity<br>`;
+  html+=`Master Poison+Gravity -> unlock Metal+Lava`;
+  html+=`</div>`;
+  html+=`<button class="tg-btn secondary" onclick="closeTrainingGrid()">Back to Menu</button>`;
+  el.innerHTML=html;
+}
+
+function startElemTraining(elemIdx){
+  closeTrainingGrid();
   document.getElementById('start-overlay').classList.add('hidden');
   document.getElementById('gameover-overlay').classList.add('hidden');
   document.getElementById('training-hud').style.display='block';
   document.getElementById('training-exit').style.display='block';
-  playing=true; gameOver=false; trainingMode=true; trainingStep=0;
-  trainingCounts={};
+  playing=true; gameOver=false; trainingMode=true; trainingElem=elemIdx;
   player={x:W/2,y:H/2,hp:999,maxHp:999,iframes:0,r:PLAYER_R};
   enemies=[];projectiles=[];effects=[];particles=[];hazards=[];
   wave=0;kills=0;score=0;spawnTimer=0;waveEnemiesLeft=0;waveDelay=99999;
-  queuedElem=-1;elemCDs=[0,0,0,0];comboCDTimer=0;screenShake=0;
-  // Spawn training dummies
+  queuedElem=-1;elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0];comboCDTimer=0;screenShake=0;
   spawnTrainingDummies();
   updateTrainingUI();
+  updateTouchElements();
   lastTime=performance.now();
   requestAnimationFrame(loop);
 }
+
+// Keep old startTraining as a redirect
+function startTraining(){
+  openTrainingGrid();
+}
+
 function spawnTrainingDummies(){
   const positions=[[W/2,H/4],[W/4,H/2],[W*3/4,H/2],[W/2,H*3/4],[W/4,H/4],[W*3/4,H/4]];
   for(const[px,py] of positions){
@@ -156,29 +335,33 @@ function spawnTrainingDummies(){
   }
 }
 function updateTrainingUI(){
-  const step=TRAINING_STEPS[trainingStep];
-  if(!step){
-    document.getElementById('training-task').textContent='You mastered all elements! Try them freely or exit.';
+  if(!trainingMode) return;
+  let idx=trainingElem;
+  let count=masteryCounts[idx]||0;
+  let need=MASTERY_NEED;
+  if(isMastered(idx)){
+    document.getElementById('training-task').textContent=ELEM_NAMES[idx]+' is already mastered! Practice freely.';
     document.getElementById('training-progress').textContent='';
-    return;
+  } else {
+    document.getElementById('training-task').textContent='Cast '+ELEM_NAMES[idx]+' on dummies (press '+ELEM_KEYS[idx].toUpperCase()+', then click)';
+    document.getElementById('training-progress').textContent=Math.min(count,need)+' / '+need;
   }
-  const key=step.combo||step.name;
-  const count=trainingCounts[key]||0;
-  document.getElementById('training-task').textContent=step.desc;
-  document.getElementById('training-progress').textContent=count+' / '+step.need;
 }
 function trainingTrack(type, name){
   if(!trainingMode) return;
-  const step=TRAINING_STEPS[trainingStep];
-  if(!step) return;
-  if(type==='elem' && step.elem!==undefined && name===ELEM_NAMES[step.elem]){
-    trainingCounts[name]=(trainingCounts[name]||0)+1;
-  } else if(type==='combo' && step.combo && name===step.combo){
-    trainingCounts[name]=(trainingCounts[name]||0)+1;
-  }
-  const key=step.combo||step.name;
-  if((trainingCounts[key]||0)>=step.need){
-    trainingStep++;
+  if(type!=='elem') return;
+  let idx=ELEM_NAMES.indexOf(name);
+  if(idx<0||idx!==trainingElem) return;
+  if(isMastered(idx)) return;
+  masteryCounts[idx]=(masteryCounts[idx]||0)+1;
+  saveMasteryCounts();
+  if(masteryCounts[idx]>=MASTERY_NEED){
+    if(!masteredElems.includes(idx)){
+      masteredElems.push(idx);
+      saveMastered();
+    }
+    // Check for tier unlocks
+    checkTierUnlocks();
     // Respawn dummies
     enemies=[];
     spawnTrainingDummies();
@@ -190,17 +373,21 @@ function exitTraining(){
   document.getElementById('training-hud').style.display='none';
   document.getElementById('training-exit').style.display='none';
   document.getElementById('start-overlay').classList.remove('hidden');
+  updateStartScreen();
+  updateTouchElements();
 }
 function startGame(){
   document.getElementById('start-overlay').classList.add('hidden');
   document.getElementById('gameover-overlay').classList.add('hidden');
   document.getElementById('training-hud').style.display='none';
   document.getElementById('training-exit').style.display='none';
+  closeTrainingGrid();
   playing=true; gameOver=false; trainingMode=false;
   player={x:W/2,y:H/2,hp:10,maxHp:10,iframes:0,r:PLAYER_R};
   enemies=[];projectiles=[];effects=[];particles=[];hazards=[];
   wave=0;kills=0;score=0;spawnTimer=0;waveEnemiesLeft=0;waveDelay=2000;
-  queuedElem=-1;elemCDs=[0,0,0,0];comboCDTimer=0;screenShake=0;
+  queuedElem=-1;elemCDs=[0,0,0,0,0,0,0,0,0,0,0,0];comboCDTimer=0;screenShake=0;
+  updateTouchElements();
   nextWave();
   lastTime=performance.now();
   requestAnimationFrame(loop);
@@ -229,13 +416,21 @@ function spawnEnemy(){
   if(roll<0.5){type='melee';hp=Math.round(15*hpMult);spd=1.6+wave*0.03;r=12;dmg=1;color='#e040fb'}
   else if(roll<0.8){type='tank';hp=Math.round(40*hpMult);spd=0.7+wave*0.01;r=22;dmg=1;color='#66bb6a'}
   else{type='ranged';hp=Math.round(18*hpMult);spd=0.9+wave*0.02;r=14;dmg=1;color='#ffd740';shootCD=3000+Math.random()*1500}
-  enemies.push({x,y,type,hp,maxHp:hp,spd,r,dmg,color,shootCD:shootCD||0,shootTimer:shootCD||0,frozen:0,slowed:0,pushX:0,pushY:0});
+  enemies.push({x,y,type,hp,maxHp:hp,spd,r,dmg,color,shootCD:shootCD||0,shootTimer:shootCD||0,frozen:0,slowed:0,pushX:0,pushY:0,poisonTimer:0,poisonDmg:0});
 }
 
 // --- Input ---
 addEventListener('keydown',e=>{
   keys[e.key.toLowerCase()]=true;
-  if(e.key>='1'&&e.key<='4'&&playing&&!gameOver) selectElement(+e.key-1);
+  if(!playing||gameOver) return;
+  let k=e.key.toLowerCase();
+  // element selection by key
+  for(let i=0;i<12;i++){
+    if(k===ELEM_KEYS[i]&&isUnlocked(i)){
+      selectElement(i);
+      break;
+    }
+  }
 });
 addEventListener('keyup',e=>keys[e.key.toLowerCase()]=false);
 addEventListener('mousemove',e=>{mouseX=e.clientX;mouseY=e.clientY});
@@ -277,15 +472,16 @@ C.addEventListener('touchstart',e=>{
 
 function touchElem(idx,e){
   e.preventDefault();
-  if(playing&&!gameOver) selectElement(idx);
+  if(playing&&!gameOver&&isUnlocked(idx)) selectElement(idx);
 }
 
 function selectElement(idx){
+  if(!isUnlocked(idx)) return;
   let now=performance.now();
   if(comboCDTimer>0)return;
   // Check for combo
   if(queuedElem>=0 && queuedElem!==idx && now-queuedTime<500){
-    let key=''+queuedElem+idx;
+    let key=queuedElem+'_'+idx;
     let name=COMBO_NAMES[key];
     if(name){
       castCombo(name,queuedElem,idx);
@@ -302,6 +498,7 @@ function selectElement(idx){
 function castAttack(){
   if(!playing||gameOver)return;
   if(queuedElem<0)return;
+  if(!isUnlocked(queuedElem)){queuedElem=-1;return}
   if(elemCDs[queuedElem]>0){queuedElem=-1;return}
   let idx=queuedElem;
   queuedElem=-1;
@@ -312,11 +509,55 @@ function castAttack(){
   let r=8;
   let col=ELEM_COLORS[idx];
   let trail=col;
+  let extra={};
+
   if(idx===0){spd=8;dmg=30+wave*3;r=9} // fire
-  if(idx===1){spd=6;dmg=25+wave*3;r=12} // water - wider
-  if(idx===2){spd=5;dmg=35+wave*3;r=11} // earth - slow but strong
-  if(idx===3){spd=10;dmg=20+wave*2;r=7} // wind - fast
-  projectiles.push({x:player.x,y:player.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r,dmg,color:col,trail,life:800,owner:'player',elem:idx});
+  if(idx===1){spd=6;dmg=25+wave*3;r=12} // water
+  if(idx===2){spd=5;dmg=35+wave*3;r=11} // earth
+  if(idx===3){spd=10;dmg=20+wave*2;r=7} // wind
+  if(idx===4){spd=12;dmg=22+wave*3;r=7;extra.chain=2;extra.chainRange=80} // lightning
+  if(idx===5){spd=7;dmg=20+wave*2;r=10;extra.freeze=2000} // ice
+  if(idx===6){spd=8;dmg=22+wave*2;r=8;extra.pierce=99} // shadow
+  if(idx===7){ // light - AoE burst at player, heals 1 HP
+    spd=0;
+    player.hp=Math.min(player.maxHp,player.hp+1);
+    effects.push({type:'light_burst',x:player.x,y:player.y,r:0,maxR:100,life:400,maxLife:400,dmg:25+wave*3,color:'#ffeb3b',hit:new Set()});
+    spawnParticles(player.x,player.y,'#ffeb3b',15,3);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===8){ // poison - creates poison cloud at target
+    let tx=player.x+Math.cos(angle)*120;
+    let ty=player.y+Math.sin(angle)*120;
+    hazards.push({type:'poison',x:tx,y:ty,r:55,life:5000,maxLife:5000,dmg:6+wave,color:'#76ff03',tickRate:400,tickTimer:0});
+    spawnParticles(tx,ty,'#76ff03',12,3);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===9){ // gravity - pull effect at target
+    let tx=player.x+Math.cos(angle)*120;
+    let ty=player.y+Math.sin(angle)*120;
+    effects.push({type:'gravity_well',x:tx,y:ty,r:100,life:3000,maxLife:3000,dmg:4+wave,color:'#7c4dff',pullStr:2.5,tickRate:200,tickTimer:0,hit:new Set()});
+    spawnParticles(tx,ty,'#7c4dff',12,3);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+  if(idx===10){spd=4;dmg=50+wave*4;r=14;extra.bounceWalls=3} // metal
+  if(idx===11){ // lava - pool at target
+    let tx=player.x+Math.cos(angle)*120;
+    let ty=player.y+Math.sin(angle)*120;
+    hazards.push({type:'lava2',x:tx,y:ty,r:55,life:4500,maxLife:4500,dmg:8+wave,color:'#ff3d00',tickRate:300,tickTimer:0});
+    spawnParticles(tx,ty,'#ff3d00',12,3);
+    trainingTrack('elem',ELEM_NAMES[idx]);
+    return;
+  }
+
+  let proj={x:player.x,y:player.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r,dmg,color:col,trail,life:800,owner:'player',elem:idx};
+  if(extra.chain){proj.chain=extra.chain;proj.chainRange=extra.chainRange}
+  if(extra.freeze){proj.freeze=extra.freeze}
+  if(extra.pierce){proj.pierce=extra.pierce}
+  if(extra.bounceWalls){proj.bounceWalls=extra.bounceWalls;proj.life=1500}
+  projectiles.push(proj);
   spawnParticles(player.x+Math.cos(angle)*20,player.y+Math.sin(angle)*20,col,5,2);
   trainingTrack('elem',ELEM_NAMES[idx]);
 }
@@ -333,7 +574,6 @@ function castCombo(name,e1,e2){
   trainingTrack('combo',name);
 
   if(name==='Steam Blast'){
-    // AoE around target
     effects.push({type:'steam',x:tx,y:ty,r:0,maxR:100,life:600,maxLife:600,dmg:30+wave*3,color:col,hit:new Set()});
     spawnParticles(tx,ty,'#ffffff',20,4);
   } else if(name==='Lava Pool'){
@@ -355,6 +595,34 @@ function castCombo(name,e1,e2){
   } else if(name==='Sandstorm'){
     effects.push({type:'sandstorm',x:tx,y:ty,r:0,maxR:110,life:1500,maxLife:1500,dmg:6+wave,color:col,hit:new Set(),pushStr:4,tickRate:200,tickTimer:0});
     spawnParticles(tx,ty,'#d4a04a',20,4);
+  } else if(name==='Frozen Storm'){
+    // Freeze + damage all enemies on screen
+    screenShake=12;
+    for(let j=enemies.length-1;j>=0;j--){
+      let e=enemies[j];
+      e.frozen=3000;
+      damageEnemy(j,35+wave*3);
+    }
+    effects.push({type:'fullscreen_flash',life:500,maxLife:500,color:'#00e5ff'});
+    spawnParticles(player.x,player.y,'#00e5ff',30,5);
+  } else if(name==='Eclipse'){
+    // Massive damage AoE covering half the screen
+    let eclR=Math.max(W,H)*0.4;
+    effects.push({type:'eclipse',x:tx,y:ty,r:0,maxR:eclR,life:800,maxLife:800,dmg:60+wave*4,color:'#311b92',hit:new Set()});
+    screenShake=15;
+    spawnParticles(tx,ty,'#9c27b0',30,5);
+  } else if(name==='Black Hole'){
+    // Pull + poison
+    effects.push({type:'gravity_well',x:tx,y:ty,r:130,life:4000,maxLife:4000,dmg:5+wave,color:'#4a148c',pullStr:3.5,tickRate:200,tickTimer:0,hit:new Set(),poison:true,poisonDmg:3+wave});
+    screenShake=10;
+    spawnParticles(tx,ty,'#76ff03',20,4);
+    spawnParticles(tx,ty,'#7c4dff',20,4);
+  } else if(name==='Meteor'){
+    // Huge projectile that explodes on impact
+    let spd=6;
+    projectiles.push({x:player.x,y:player.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r:22,dmg:80+wave*5,color:'#ff6d00',trail:'#ff3d00',life:1200,owner:'player',elem:-1,meteor:true});
+    screenShake=10;
+    spawnParticles(player.x,player.y,'#ff6d00',15,4);
   }
   // Flash combo name
   effects.push({type:'text',x:player.x,y:player.y-40,text:name,color:col,life:1000,maxLife:1000});
@@ -403,7 +671,7 @@ function update(dt){
   if(player.iframes>0)player.iframes-=dt;
 
   // Cooldowns
-  for(let i=0;i<4;i++)if(elemCDs[i]>0)elemCDs[i]=Math.max(0,elemCDs[i]-dt);
+  for(let i=0;i<12;i++)if(elemCDs[i]>0)elemCDs[i]=Math.max(0,elemCDs[i]-dt);
   if(comboCDTimer>0)comboCDTimer=Math.max(0,comboCDTimer-dt);
   // Clear queued if expired
   if(queuedElem>=0&&performance.now()-queuedTime>800)queuedElem=-1;
@@ -426,7 +694,7 @@ function update(dt){
     }
   }
   if(waveDelay>0)waveDelay-=dt;
-  if(waveEnemiesLeft<=0&&enemies.length===0&&waveDelay<=0) nextWave();
+  if(waveEnemiesLeft<=0&&enemies.length===0&&waveDelay<=0&&!trainingMode) nextWave();
 
   // Enemies
   for(let i=enemies.length-1;i>=0;i--){
@@ -440,12 +708,22 @@ function update(dt){
       if(Math.abs(e.pushX)<0.1)e.pushX=0;
       if(Math.abs(e.pushY)<0.1)e.pushY=0;
     }
+    // Poison DOT
+    if(e.poisonTimer>0){
+      e.poisonTimer-=dt;
+      e.poisonTickCD=(e.poisonTickCD||0)-dt;
+      if(e.poisonTickCD<=0){
+        e.poisonTickCD=500;
+        damageEnemy(i,e.poisonDmg||3);
+        spawnParticles(e.x,e.y,'#76ff03',2,1);
+        if(i>=enemies.length) continue; // enemy might have died
+      }
+    }
     let toX=player.x-e.x, toY=player.y-e.y;
     let dist=Math.sqrt(toX*toX+toY*toY);
     if(dist>0){toX/=dist;toY/=dist}
 
     if(e.type==='ranged'&&dist<250){
-      // stay at range
       e.x-=toX*e.spd*spdMul*0.3*(dt/16);
       e.y-=toY*e.spd*spdMul*0.3*(dt/16);
     } else if(e.type==='ranged'&&dist>300){
@@ -476,9 +754,13 @@ function update(dt){
       let hd=Math.sqrt((e.x-h.x)**2+(e.y-h.y)**2);
       if(hd<h.r+e.r){
         if(h.type==='mud') e.slowed=100;
-        if(h.type==='lava'){
+        if(h.type==='lava'||h.type==='lava2'){
           h.tickTimer-=dt;
-          if(h.tickTimer<=0){h.tickTimer=h.tickRate;damageEnemy(i,h.dmg)}
+          if(h.tickTimer<=0){h.tickTimer=h.tickRate;damageEnemy(i,h.dmg);if(i>=enemies.length)break}
+        }
+        if(h.type==='poison'){
+          h.tickTimer-=dt;
+          if(h.tickTimer<=0){h.tickTimer=h.tickRate;damageEnemy(i,h.dmg);if(i>=enemies.length)break}
         }
       }
     }
@@ -492,7 +774,17 @@ function update(dt){
     // Trail particles
     if(Math.random()<0.4) particles.push({x:p.x,y:p.y,vx:(Math.random()-0.5)*0.5,vy:(Math.random()-0.5)*0.5,r:p.r*0.5,color:p.trail||p.color,life:200,maxLife:200,alpha:0.6});
 
-    if(p.life<=0||p.x<-50||p.x>W+50||p.y<-50||p.y>H+50){projectiles.splice(i,1);continue}
+    // Metal bounce off walls
+    if(p.bounceWalls&&p.bounceWalls>0){
+      if(p.x<p.r||p.x>W-p.r){p.vx=-p.vx;p.bounceWalls--;p.x=Math.max(p.r,Math.min(W-p.r,p.x));spawnParticles(p.x,p.y,'#90a4ae',4,2)}
+      if(p.y<p.r||p.y>H-p.r){p.vy=-p.vy;p.bounceWalls--;p.y=Math.max(p.r,Math.min(H-p.r,p.y));spawnParticles(p.x,p.y,'#90a4ae',4,2)}
+    }
+
+    if(p.life<=0||p.x<-50||p.x>W+50||p.y<-50||p.y>H+50){
+      // Meteor explodes when it expires or goes OOB
+      if(p.meteor&&p.life<=0){meteorExplode(p.x,p.y,p.dmg)}
+      projectiles.splice(i,1);continue;
+    }
 
     if(p.owner==='player'){
       for(let j=enemies.length-1;j>=0;j--){
@@ -502,6 +794,19 @@ function update(dt){
           damageEnemy(j,p.dmg);
           if(p.freeze) e.frozen=p.freeze;
           spawnParticles(p.x,p.y,p.color,6,2);
+
+          // Lightning chain
+          if(p.chain&&p.chain>0){
+            chainLightning(p.x,p.y,j,p.chain,p.chainRange||80,p.dmg*0.6);
+          }
+
+          // Meteor explodes on hit
+          if(p.meteor){
+            meteorExplode(p.x,p.y,p.dmg);
+            projectiles.splice(i,1);
+            break;
+          }
+
           if(p.pierce&&p.pierce>1){p.pierce--;p.dmg*=0.7} else {projectiles.splice(i,1)}
           break;
         }
@@ -531,6 +836,47 @@ function update(dt){
         if(d<ef.r+e.r){ef.hit.add(j);damageEnemy(j,ef.dmg)}
       }
     }
+    if(ef.type==='light_burst'){
+      let t=1-ef.life/ef.maxLife;
+      ef.r=ef.maxR*t;
+      for(let j=enemies.length-1;j>=0;j--){
+        let e=enemies[j];
+        if(ef.hit.has(j))continue;
+        let d=Math.sqrt((ef.x-e.x)**2+(ef.y-e.y)**2);
+        if(d<ef.r+e.r){ef.hit.add(j);damageEnemy(j,ef.dmg)}
+      }
+    }
+    if(ef.type==='eclipse'){
+      let t=1-ef.life/ef.maxLife;
+      ef.r=ef.maxR*Math.min(1,t*2);
+      for(let j=enemies.length-1;j>=0;j--){
+        let e=enemies[j];
+        if(ef.hit.has(j))continue;
+        let d=Math.sqrt((ef.x-e.x)**2+(ef.y-e.y)**2);
+        if(d<ef.r+e.r){ef.hit.add(j);damageEnemy(j,ef.dmg)}
+      }
+    }
+    if(ef.type==='gravity_well'){
+      ef.tickTimer-=dt;
+      if(ef.tickTimer<=0){
+        ef.tickTimer=ef.tickRate;
+        for(let j=enemies.length-1;j>=0;j--){
+          let e=enemies[j];
+          let ddx=ef.x-e.x,ddy=ef.y-e.y;
+          let d=Math.sqrt(ddx*ddx+ddy*ddy);
+          if(d<ef.r+e.r&&d>0){
+            e.pushX=ddx/d*ef.pullStr;
+            e.pushY=ddy/d*ef.pullStr;
+            damageEnemy(j,ef.dmg);
+            if(ef.poison&&j<enemies.length){
+              enemies[j].poisonTimer=3000;
+              enemies[j].poisonDmg=ef.poisonDmg||3;
+            }
+          }
+        }
+      }
+      if(Math.random()<0.3) particles.push({x:ef.x+(Math.random()-0.5)*ef.r*2,y:ef.y+(Math.random()-0.5)*ef.r*2,vx:(Math.random()-0.5)*2,vy:(Math.random()-0.5)*2,r:2+Math.random()*2,color:ef.color,life:300,maxLife:300,alpha:0.6});
+    }
     if(ef.type==='sandstorm'){
       let t=1-ef.life/ef.maxLife;
       ef.r=ef.maxR*Math.min(1,t*3);
@@ -539,11 +885,11 @@ function update(dt){
         ef.tickTimer=ef.tickRate;
         for(let j=enemies.length-1;j>=0;j--){
           let e=enemies[j];
-          let dx=e.x-ef.x,dy=e.y-ef.y;
-          let d=Math.sqrt(dx*dx+dy*dy);
+          let ddx=e.x-ef.x,ddy=e.y-ef.y;
+          let d=Math.sqrt(ddx*ddx+ddy*ddy);
           if(d<ef.r+e.r){
             damageEnemy(j,ef.dmg);
-            if(d>0){e.pushX=dx/d*ef.pushStr;e.pushY=dy/d*ef.pushStr}
+            if(d>0&&j<enemies.length){enemies[j].pushX=ddx/d*ef.pushStr;enemies[j].pushY=ddy/d*ef.pushStr}
           }
         }
       }
@@ -552,6 +898,9 @@ function update(dt){
     if(ef.type==='text'){
       ef.y-=0.5*(dt/16);
     }
+    if(ef.type==='fullscreen_flash'){
+      // Just fades out, handled in draw
+    }
   }
 
   // Hazards
@@ -559,7 +908,6 @@ function update(dt){
     let h=hazards[i];
     h.life-=dt;
     if(h.life<=0){hazards.splice(i,1);continue}
-    // Lava damage ticks handled in enemy loop
   }
 
   // Particles
@@ -572,10 +920,41 @@ function update(dt){
   }
 }
 
+function chainLightning(ox,oy,hitIdx,chains,range,dmg){
+  let hitSet=new Set([hitIdx]);
+  let cx=ox,cy=oy;
+  for(let c=0;c<chains;c++){
+    let best=-1,bestD=range;
+    for(let j=0;j<enemies.length;j++){
+      if(hitSet.has(j)) continue;
+      let e=enemies[j];
+      let d=Math.sqrt((cx-e.x)**2+(cy-e.y)**2);
+      if(d<bestD){bestD=d;best=j}
+    }
+    if(best>=0){
+      hitSet.add(best);
+      let e=enemies[best];
+      // Draw chain effect
+      effects.push({type:'lightning_arc',x1:cx,y1:cy,x2:e.x,y2:e.y,life:200,maxLife:200,color:'#ffd600'});
+      damageEnemy(best,dmg);
+      if(best<enemies.length){cx=enemies[best].x;cy=enemies[best].y}
+      spawnParticles(cx,cy,'#ffd600',4,2);
+    } else break;
+  }
+}
+
+function meteorExplode(x,y,dmg){
+  effects.push({type:'steam',x,y,r:0,maxR:120,life:500,maxLife:500,dmg:dmg*0.6,color:'#ff6d00',hit:new Set()});
+  hazards.push({type:'lava',x,y,r:50,life:3000,maxLife:3000,dmg:6+wave,color:'#ff6d00',tickRate:300,tickTimer:0});
+  screenShake=12;
+  spawnParticles(x,y,'#ff6d00',25,5);
+  spawnParticles(x,y,'#ff3d00',15,4);
+}
+
 function damageEnemy(idx,dmg){
+  if(idx>=enemies.length) return;
   let e=enemies[idx];
   if(trainingMode){
-    // Dummies flash but don't die
     spawnParticles(e.x,e.y,'#ffd600',4,2);
     return;
   }
@@ -624,13 +1003,13 @@ function draw(){
   // Hazards
   for(let h of hazards){
     let alpha=Math.min(1,h.life/1000);
-    if(h.type==='lava'){
+    if(h.type==='lava'||h.type==='lava2'){
+      let baseCol=h.type==='lava2'?[255,61,0]:[255,110,64];
       let g=X.createRadialGradient(h.x,h.y,0,h.x,h.y,h.r);
-      g.addColorStop(0,`rgba(255,110,64,${0.5*alpha})`);
-      g.addColorStop(0.6,`rgba(255,61,0,${0.3*alpha})`);
-      g.addColorStop(1,`rgba(255,61,0,0)`);
+      g.addColorStop(0,`rgba(${baseCol[0]},${baseCol[1]},${baseCol[2]},${0.5*alpha})`);
+      g.addColorStop(0.6,`rgba(${baseCol[0]},${Math.max(0,baseCol[1]-40)},0,${0.3*alpha})`);
+      g.addColorStop(1,`rgba(${baseCol[0]},${Math.max(0,baseCol[1]-40)},0,0)`);
       X.fillStyle=g;X.beginPath();X.arc(h.x,h.y,h.r,0,Math.PI*2);X.fill();
-      // Bubbles
       if(Math.random()<0.2){
         let bx=h.x+(Math.random()-0.5)*h.r,by=h.y+(Math.random()-0.5)*h.r;
         X.fillStyle=`rgba(255,200,50,${0.6*alpha})`;X.beginPath();X.arc(bx,by,2+Math.random()*3,0,Math.PI*2);X.fill();
@@ -643,24 +1022,68 @@ function draw(){
       X.fillStyle=g;X.beginPath();X.arc(h.x,h.y,h.r,0,Math.PI*2);X.fill();
       X.strokeStyle=`rgba(121,85,72,${0.3*alpha})`;X.lineWidth=2;X.stroke();
     }
+    if(h.type==='poison'){
+      let g=X.createRadialGradient(h.x,h.y,0,h.x,h.y,h.r);
+      g.addColorStop(0,`rgba(118,255,3,${0.35*alpha})`);
+      g.addColorStop(0.6,`rgba(76,175,80,${0.2*alpha})`);
+      g.addColorStop(1,`rgba(76,175,80,0)`);
+      X.fillStyle=g;X.beginPath();X.arc(h.x,h.y,h.r,0,Math.PI*2);X.fill();
+      // Poison bubbles
+      if(Math.random()<0.25){
+        let bx=h.x+(Math.random()-0.5)*h.r,by=h.y+(Math.random()-0.5)*h.r;
+        X.fillStyle=`rgba(118,255,3,${0.5*alpha})`;X.beginPath();X.arc(bx,by,1+Math.random()*2,0,Math.PI*2);X.fill();
+      }
+    }
   }
 
   // Effects
   for(let ef of effects){
     let alpha=ef.life/ef.maxLife;
-    if(ef.type==='steam'){
-      let g=X.createRadialGradient(ef.x,ef.y,0,ef.x,ef.y,ef.r);
+    if(ef.type==='steam'||ef.type==='light_burst'){
+      let g=X.createRadialGradient(ef.x,ef.y,0,ef.x,ef.y,ef.r||1);
+      let col=ef.color||'#ffffff';
       g.addColorStop(0,`rgba(255,255,255,${0.4*alpha})`);
       g.addColorStop(1,`rgba(200,200,200,0)`);
+      if(ef.type==='light_burst'){
+        g=X.createRadialGradient(ef.x,ef.y,0,ef.x,ef.y,ef.r||1);
+        g.addColorStop(0,`rgba(255,235,59,${0.5*alpha})`);
+        g.addColorStop(1,`rgba(255,235,59,0)`);
+      }
+      X.fillStyle=g;X.beginPath();X.arc(ef.x,ef.y,ef.r||1,0,Math.PI*2);X.fill();
+    }
+    if(ef.type==='eclipse'){
+      let g=X.createRadialGradient(ef.x,ef.y,0,ef.x,ef.y,ef.r||1);
+      g.addColorStop(0,`rgba(49,27,146,${0.6*alpha})`);
+      g.addColorStop(0.5,`rgba(156,39,176,${0.3*alpha})`);
+      g.addColorStop(1,`rgba(0,0,0,0)`);
+      X.fillStyle=g;X.beginPath();X.arc(ef.x,ef.y,ef.r||1,0,Math.PI*2);X.fill();
+    }
+    if(ef.type==='gravity_well'){
+      let g=X.createRadialGradient(ef.x,ef.y,0,ef.x,ef.y,ef.r);
+      g.addColorStop(0,`rgba(124,77,255,${0.3*alpha})`);
+      g.addColorStop(0.7,`rgba(124,77,255,${0.15*alpha})`);
+      g.addColorStop(1,`rgba(124,77,255,0)`);
       X.fillStyle=g;X.beginPath();X.arc(ef.x,ef.y,ef.r,0,Math.PI*2);X.fill();
+      // Swirl
+      X.strokeStyle=`rgba(124,77,255,${0.4*alpha})`;X.lineWidth=2;
+      let t=performance.now()/300;
+      for(let s=0;s<2;s++){
+        X.beginPath();
+        for(let a=0;a<Math.PI*2;a+=0.2){
+          let rr=ef.r*(1-a/(Math.PI*2))*0.8;
+          let px=ef.x+Math.cos(a+t+s*Math.PI)*rr;
+          let py=ef.y+Math.sin(a+t+s*Math.PI)*rr;
+          a===0?X.moveTo(px,py):X.lineTo(px,py);
+        }
+        X.stroke();
+      }
     }
     if(ef.type==='sandstorm'){
-      let g=X.createRadialGradient(ef.x,ef.y,0,ef.x,ef.y,ef.r);
+      let g=X.createRadialGradient(ef.x,ef.y,0,ef.x,ef.y,ef.r||1);
       g.addColorStop(0,`rgba(212,160,74,${0.15*alpha})`);
       g.addColorStop(0.7,`rgba(212,160,74,${0.25*alpha})`);
       g.addColorStop(1,`rgba(212,160,74,0)`);
-      X.fillStyle=g;X.beginPath();X.arc(ef.x,ef.y,ef.r,0,Math.PI*2);X.fill();
-      // Swirl lines
+      X.fillStyle=g;X.beginPath();X.arc(ef.x,ef.y,ef.r||1,0,Math.PI*2);X.fill();
       X.strokeStyle=`rgba(212,160,74,${0.3*alpha})`;X.lineWidth=2;
       let t=performance.now()/200;
       for(let s=0;s<3;s++){
@@ -673,6 +1096,28 @@ function draw(){
         }
         X.stroke();
       }
+    }
+    if(ef.type==='lightning_arc'){
+      X.strokeStyle=`rgba(255,214,0,${alpha})`;
+      X.lineWidth=3;
+      X.shadowColor='#ffd600';X.shadowBlur=10;
+      X.beginPath();
+      X.moveTo(ef.x1,ef.y1);
+      // Jagged line
+      let dx=ef.x2-ef.x1,dy=ef.y2-ef.y1;
+      let steps=4;
+      for(let s=1;s<=steps;s++){
+        let t=s/steps;
+        let jx=(s<steps)?(Math.random()-0.5)*20:0;
+        let jy=(s<steps)?(Math.random()-0.5)*20:0;
+        X.lineTo(ef.x1+dx*t+jx,ef.y1+dy*t+jy);
+      }
+      X.stroke();
+      X.shadowBlur=0;
+    }
+    if(ef.type==='fullscreen_flash'){
+      X.fillStyle=`rgba(0,229,255,${0.3*alpha})`;
+      X.fillRect(0,0,W,H);
     }
     if(ef.type==='text'){
       X.globalAlpha=alpha;
@@ -689,30 +1134,30 @@ function draw(){
   // Enemies
   for(let e of enemies){
     X.globalAlpha=e.frozen>0?0.6:1;
-    // Body
     X.fillStyle=e.frozen>0?'#80deea':e.color;
     X.shadowColor=e.color;X.shadowBlur=e.frozen>0?15:8;
     X.beginPath();X.arc(e.x,e.y,e.r,0,Math.PI*2);X.fill();
     X.shadowBlur=0;
-    // Inner
     X.fillStyle='rgba(0,0,0,0.3)';
     X.beginPath();X.arc(e.x,e.y,e.r*0.6,0,Math.PI*2);X.fill();
-    // Eyes
     let toP=Math.atan2(player.y-e.y,player.x-e.x);
     X.fillStyle='#fff';
     X.beginPath();X.arc(e.x+Math.cos(toP-0.3)*e.r*0.35,e.y+Math.sin(toP-0.3)*e.r*0.35,e.r*0.18,0,Math.PI*2);X.fill();
     X.beginPath();X.arc(e.x+Math.cos(toP+0.3)*e.r*0.35,e.y+Math.sin(toP+0.3)*e.r*0.35,e.r*0.18,0,Math.PI*2);X.fill();
-    // HP bar
     if(e.hp<e.maxHp){
       let bw=e.r*2+6,bh=4;
       let bx=e.x-bw/2,by=e.y-e.r-10;
       X.fillStyle='rgba(0,0,0,0.5)';X.fillRect(bx,by,bw,bh);
       X.fillStyle='#4caf50';X.fillRect(bx,by,bw*(e.hp/e.maxHp),bh);
     }
-    // Frozen indicator
     if(e.frozen>0){
       X.strokeStyle='#80deea';X.lineWidth=2;
       X.beginPath();X.arc(e.x,e.y,e.r+4,0,Math.PI*2);X.stroke();
+    }
+    // Poison indicator
+    if(e.poisonTimer>0){
+      X.strokeStyle='#76ff03';X.lineWidth=2;
+      X.beginPath();X.arc(e.x,e.y,e.r+6,0,Math.PI*2*(e.poisonTimer/3000));X.stroke();
     }
     X.globalAlpha=1;
   }
@@ -728,22 +1173,18 @@ function draw(){
   // Player
   let pAlpha=player.iframes>0?0.4+0.3*Math.sin(performance.now()/50):1;
   X.globalAlpha=pAlpha;
-  // Glow
   let aimAngle=Math.atan2(mouseY-player.y,mouseX-player.x);
   X.fillStyle='#fff';
   X.shadowColor='#4fc3f7';X.shadowBlur=20;
   X.beginPath();X.arc(player.x,player.y,player.r,0,Math.PI*2);X.fill();
   X.shadowBlur=0;
-  // Inner body
   X.fillStyle='#0a0a1a';
   X.beginPath();X.arc(player.x,player.y,player.r-3,0,Math.PI*2);X.fill();
-  // Core
   let coreCol=queuedElem>=0?ELEM_COLORS[queuedElem]:'#4fc3f7';
   X.fillStyle=coreCol;
   X.shadowColor=coreCol;X.shadowBlur=10;
   X.beginPath();X.arc(player.x,player.y,player.r*0.45,0,Math.PI*2);X.fill();
   X.shadowBlur=0;
-  // Aim indicator
   X.strokeStyle=`rgba(255,255,255,0.3)`;X.lineWidth=2;
   X.beginPath();
   X.moveTo(player.x+Math.cos(aimAngle)*player.r,player.y+Math.sin(aimAngle)*player.r);
@@ -777,8 +1218,12 @@ function draw(){
   X.font='13px -apple-system,BlinkMacSystemFont,sans-serif';
   X.fillText(`Kills: ${kills}  |  Score: ${score}`,W/2,44);
 
-  // Element bar
-  let barW=240,barH=52;
+  // Element bar - dynamic based on unlocked elements
+  let unlocked=unlockedElems.slice().sort((a,b)=>a-b);
+  let numElems=unlocked.length;
+  let elemSpacing=48;
+  let barW=Math.max(numElems*elemSpacing+16,100);
+  let barH=52;
   let barX=(W-barW)/2,barY=H-barH-16;
   X.fillStyle='rgba(0,0,0,0.6)';
   roundRect(barX,barY,barW,barH,12);
@@ -786,38 +1231,34 @@ function draw(){
   X.strokeStyle='rgba(255,255,255,0.08)';X.lineWidth=1;
   roundRect(barX,barY,barW,barH,12);X.stroke();
 
-  for(let i=0;i<4;i++){
-    let ex=barX+16+i*56,ey=barY+barH/2;
+  for(let ni=0;ni<numElems;ni++){
+    let i=unlocked[ni];
+    let ex=barX+8+elemSpacing/2+ni*elemSpacing,ey=barY+barH/2;
     let onCD=elemCDs[i]>0;
     let isQueued=queuedElem===i;
-    // Background circle
     X.fillStyle=onCD?'rgba(255,255,255,0.05)':'rgba(255,255,255,0.1)';
-    X.beginPath();X.arc(ex,ey,18,0,Math.PI*2);X.fill();
-    // Queued glow
+    X.beginPath();X.arc(ex,ey,16,0,Math.PI*2);X.fill();
     if(isQueued){
       X.strokeStyle=ELEM_COLORS[i];X.lineWidth=2;
       X.shadowColor=ELEM_COLORS[i];X.shadowBlur=12;
-      X.beginPath();X.arc(ex,ey,20,0,Math.PI*2);X.stroke();
+      X.beginPath();X.arc(ex,ey,18,0,Math.PI*2);X.stroke();
       X.shadowBlur=0;
     }
-    // Element dot
     X.globalAlpha=onCD?0.3:1;
     X.fillStyle=ELEM_COLORS[i];
-    X.beginPath();X.arc(ex,ey,10,0,Math.PI*2);X.fill();
-    // CD overlay
+    X.beginPath();X.arc(ex,ey,8,0,Math.PI*2);X.fill();
     if(onCD){
       let cdPct=elemCDs[i]/(comboCDTimer>0&&elemCDs[i]>ELEM_CD?COMBO_CD:ELEM_CD);
       X.fillStyle='rgba(0,0,0,0.5)';
       X.beginPath();X.moveTo(ex,ey);
-      X.arc(ex,ey,10,-Math.PI/2,-Math.PI/2+Math.PI*2*cdPct);
+      X.arc(ex,ey,8,-Math.PI/2,-Math.PI/2+Math.PI*2*cdPct);
       X.closePath();X.fill();
     }
     X.globalAlpha=1;
-    // Key label
-    X.font='bold 10px -apple-system,BlinkMacSystemFont,sans-serif';
+    X.font='bold 9px -apple-system,BlinkMacSystemFont,sans-serif';
     X.textAlign='center';
     X.fillStyle=onCD?'#444':'#aaa';
-    X.fillText(''+(i+1),ex,ey+30);
+    X.fillText(ELEM_KEYS[i].toUpperCase(),ex,ey+28);
   }
 
   // Combo CD indicator
