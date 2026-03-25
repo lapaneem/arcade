@@ -809,6 +809,7 @@ function update() {
         if (a.hp <= 0) {
           spawnExplosion(a.x, a.z, 0xa0926b, 15);
           if (a.crystalValue > 0) spawnCrystal(a.x, a.z, a.crystalValue);
+          crystals++;
           score += 10;
           asteroidsMined++;
           scene.remove(a.mesh);
