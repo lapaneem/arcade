@@ -134,8 +134,8 @@ let gameRunning = false, dead = false;
 let score = 0, bestScore = +(localStorage.getItem('ship-flight-best') || 0);
 let holding = false;
 let screenShake = 0;
-let baseSpeed = 3;
-let gameSpeed = 3;
+let baseSpeed = 2.5;
+let gameSpeed = 2.5;
 let frameCount = 0;
 
 const ship = { x: 0, y: 0, vy: 0, angle: 0, w: 36, h: 20 };
@@ -143,11 +143,11 @@ let obstacles = [];
 let particles = [];
 let trail = [];
 
-const GRAVITY = 0.35;
-const LIFT = -0.6;
-const MAX_VY = 8;
-const OBSTACLE_GAP = 140;
-const OBSTACLE_WIDTH = 50;
+const GRAVITY = 0.28;
+const LIFT = -0.55;
+const MAX_VY = 7;
+const OBSTACLE_GAP = 180;
+const OBSTACLE_WIDTH = 45;
 
 let nextObstacleX = 0;
 
@@ -195,8 +195,8 @@ function startGame() {
 
 // === OBSTACLE GENERATION ===
 function spawnObstacle() {
-  const diff = Math.min(score / 3000, 1);
-  const gap = OBSTACLE_GAP - diff * 50; // gap shrinks over time
+  const diff = Math.min(score / 5000, 1);
+  const gap = OBSTACLE_GAP - diff * 40; // gap shrinks slowly over time
   const minY = gap / 2 + 30;
   const maxY = H - gap / 2 - 30;
   const centerY = minY + Math.random() * (maxY - minY);
@@ -216,29 +216,29 @@ function spawnObstacle() {
     passed: false,
   };
 
-  if (score > 500 && type < 0.3) {
+  if (score > 800 && type < 0.25) {
     ob.type = 'moving';
-    ob.moveSpeed = 1 + diff * 2;
-    ob.moveRange = 30 + diff * 40;
-  } else if (score > 1000 && type < 0.15) {
+    ob.moveSpeed = 0.8 + diff * 1.5;
+    ob.moveRange = 20 + diff * 30;
+  } else if (score > 1500 && type < 0.12) {
     ob.type = 'laser';
-    ob.gap = gap + 20;
+    ob.gap = gap + 30;
     ob.laserTimer = Math.random() * 120;
-  } else if (score > 1500 && type < 0.1) {
+  } else if (score > 2500 && type < 0.08) {
     ob.type = 'spinning';
     ob.spinAngle = 0;
-    ob.spinSpeed = 0.02 + diff * 0.02;
+    ob.spinSpeed = 0.015 + diff * 0.015;
   }
 
   obstacles.push(ob);
 
-  const spacing = 250 - diff * 60;
-  nextObstacleX += Math.max(spacing, 160) + Math.random() * 40;
+  const spacing = 300 - diff * 60;
+  nextObstacleX += Math.max(spacing, 200) + Math.random() * 50;
 }
 
 // === COLLISION ===
 function checkCollision() {
-  const sx = ship.x, sy = ship.y, sw = ship.w * 0.7, sh = ship.h * 0.6;
+  const sx = ship.x, sy = ship.y, sw = ship.w * 0.55, sh = ship.h * 0.5;
   const sL = sx - sw/2, sR = sx + sw/2, sT = sy - sh/2, sB = sy + sh/2;
 
   // Ceiling and floor
@@ -326,7 +326,7 @@ function update() {
   frameCount++;
 
   // Speed ramp
-  gameSpeed = baseSpeed + Math.min(frameCount / 500, 4);
+  gameSpeed = baseSpeed + Math.min(frameCount / 800, 3);
 
   // Theme change every 500 points
   score = Math.floor(frameCount * gameSpeed / 10);
@@ -613,7 +613,7 @@ function draw() {
 
     // Ship hitbox
     if (!dead) {
-      const sw = ship.w * 0.7, sh = ship.h * 0.6;
+      const sw = ship.w * 0.55, sh = ship.h * 0.5;
       ctx.strokeStyle = 'rgba(0,255,0,0.8)';
       ctx.strokeRect(ship.x - sw/2, ship.y - sh/2, sw, sh);
     }
