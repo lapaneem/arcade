@@ -96,7 +96,7 @@ const COMBO_COLORS={
   'Ice Shard':'#80deea',
   'Sandstorm':'#d4a04a'
 };
-const ELEM_CD=500, COMBO_CD=2000;
+const ELEM_CD=300, COMBO_CD=1200;
 const PLAYER_SPD=3.5, PLAYER_R=16;
 
 // --- State ---
@@ -116,7 +116,7 @@ function startGame(){
   document.getElementById('start-overlay').classList.add('hidden');
   document.getElementById('gameover-overlay').classList.add('hidden');
   playing=true; gameOver=false;
-  player={x:W/2,y:H/2,hp:5,maxHp:5,iframes:0,r:PLAYER_R};
+  player={x:W/2,y:H/2,hp:10,maxHp:10,iframes:0,r:PLAYER_R};
   enemies=[];projectiles=[];effects=[];particles=[];hazards=[];
   wave=0;kills=0;score=0;spawnTimer=0;waveEnemiesLeft=0;waveDelay=2000;
   queuedElem=-1;elemCDs=[0,0,0,0];comboCDTimer=0;screenShake=0;
@@ -129,8 +129,8 @@ function startGame(){
 function nextWave(){
   wave++;
   waveDelay=2500;
-  let count=3+wave*2;
-  if(wave>5)count+=wave;
+  let count=2+wave;
+  if(wave>8)count+=Math.floor(wave/2);
   waveEnemiesLeft=count;
   spawnTimer=0;
 }
@@ -144,10 +144,10 @@ function spawnEnemy(){
   else{x=-30;y=Math.random()*H}
   let roll=Math.random();
   let type,hp,spd,r,dmg,color,shootCD;
-  let hpMult=1+wave*0.2;
-  if(roll<0.5){type='melee';hp=Math.round(20*hpMult);spd=2.2+wave*0.05;r=12;dmg=1;color='#e040fb'}
-  else if(roll<0.8){type='tank';hp=Math.round(60*hpMult);spd=1+wave*0.02;r=22;dmg=1;color='#66bb6a'}
-  else{type='ranged';hp=Math.round(25*hpMult);spd=1.2+wave*0.03;r=14;dmg=1;color='#ffd740';shootCD=2000+Math.random()*1000}
+  let hpMult=1+wave*0.1;
+  if(roll<0.5){type='melee';hp=Math.round(15*hpMult);spd=1.6+wave*0.03;r=12;dmg=1;color='#e040fb'}
+  else if(roll<0.8){type='tank';hp=Math.round(40*hpMult);spd=0.7+wave*0.01;r=22;dmg=1;color='#66bb6a'}
+  else{type='ranged';hp=Math.round(18*hpMult);spd=0.9+wave*0.02;r=14;dmg=1;color='#ffd740';shootCD=3000+Math.random()*1500}
   enemies.push({x,y,type,hp,maxHp:hp,spd,r,dmg,color,shootCD:shootCD||0,shootTimer:shootCD||0,frozen:0,slowed:0,pushX:0,pushY:0});
 }
 
@@ -227,14 +227,14 @@ function castAttack(){
   elemCDs[idx]=ELEM_CD;
   let angle=Math.atan2(mouseY-player.y,mouseX-player.x);
   let spd=7;
-  let dmg=15+wave*2;
-  let r=6;
+  let dmg=25+wave*3;
+  let r=8;
   let col=ELEM_COLORS[idx];
   let trail=col;
-  if(idx===0){spd=8;dmg=18+wave*2;r=7} // fire
-  if(idx===1){spd=6;dmg=14+wave*2;r=10} // water - wider
-  if(idx===2){spd=5;dmg=22+wave*2;r=9} // earth - slow but strong
-  if(idx===3){spd=10;dmg=12+wave;r=5} // wind - fast
+  if(idx===0){spd=8;dmg=30+wave*3;r=9} // fire
+  if(idx===1){spd=6;dmg=25+wave*3;r=12} // water - wider
+  if(idx===2){spd=5;dmg=35+wave*3;r=11} // earth - slow but strong
+  if(idx===3){spd=10;dmg=20+wave*2;r=7} // wind - fast
   projectiles.push({x:player.x,y:player.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r,dmg,color:col,trail,life:800,owner:'player',elem:idx});
   spawnParticles(player.x+Math.cos(angle)*20,player.y+Math.sin(angle)*20,col,5,2);
 }
@@ -339,7 +339,7 @@ function update(dt){
     if(spawnTimer<=0){
       spawnEnemy();
       waveEnemiesLeft--;
-      spawnTimer=400+Math.random()*600;
+      spawnTimer=800+Math.random()*800;
     }
   }
   if(waveDelay>0)waveDelay-=dt;
@@ -503,7 +503,7 @@ function damageEnemy(idx,dmg){
 function damagePlayer(dmg){
   if(player.iframes>0)return;
   player.hp-=dmg;
-  player.iframes=1000;
+  player.iframes=1500;
   screenShake=6;
   spawnParticles(player.x,player.y,'#ff5252',10,3);
   if(player.hp<=0){
