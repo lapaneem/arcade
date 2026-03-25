@@ -51,6 +51,7 @@ canvas{display:block}
     </div>
     <p>Wield 4 elements and combine them into devastating combos. Survive endless waves of enemies in the arena!</p>
     <button class="btn" onclick="startGame()">Play</button>
+    <button class="btn" onclick="startTraining()" style="background:linear-gradient(135deg,#7c4dff,#e040fb);box-shadow:0 0 30px rgba(124,77,255,0.3);margin-top:10px;">Training Grounds</button>
     <div class="controls-info">
       <kbd>WASD</kbd> / <kbd>Arrows</kbd> Move &nbsp; <kbd>Mouse</kbd> Aim &nbsp; <kbd>Click</kbd> Cast<br>
       <kbd>1</kbd> Fire &nbsp; <kbd>2</kbd> Water &nbsp; <kbd>3</kbd> Earth &nbsp; <kbd>4</kbd> Wind<br>
@@ -63,6 +64,12 @@ canvas{display:block}
     <div class="stats" id="go-stats"></div>
     <button class="btn" onclick="startGame()">Play Again</button>
   </div>
+  <div id="training-hud" style="display:none;position:fixed;top:10px;left:50%;transform:translateX(-50%);z-index:20;text-align:center;pointer-events:none;">
+    <div style="font-size:20px;font-weight:800;color:#e040fb;text-shadow:0 0 15px rgba(224,64,251,0.5);">TRAINING GROUNDS</div>
+    <div id="training-task" style="font-size:14px;color:#aaa;margin-top:6px;"></div>
+    <div id="training-progress" style="font-size:13px;color:#7c4dff;margin-top:4px;"></div>
+  </div>
+  <button id="training-exit" style="display:none;position:fixed;top:12px;right:12px;z-index:20;padding:8px 16px;border:2px solid rgba(224,64,251,0.4);border-radius:20px;background:rgba(10,10,30,0.8);color:#e040fb;font-size:12px;font-weight:700;cursor:pointer;letter-spacing:1px;" onclick="exitTraining()">EXIT</button>
   <div id="touch-joystick" class="touch-ctrl"></div>
   <div id="touch-elements" class="touch-ctrl">
     <div class="te-btn" style="border-color:#e94560;color:#e94560" ontouchstart="touchElem(0,event)" onmousedown="touchElem(0,event)">1</div>
@@ -107,15 +114,89 @@ let keys={}, mouseX=0, mouseY=0, mouseDown=false;
 let queuedElem=-1, queuedTime=0;
 let elemCDs=[0,0,0,0], comboCDTimer=0;
 let screenShake=0, shakeX=0, shakeY=0;
+let trainingMode=false, trainingStep=0, trainingCounts={};
+const TRAINING_STEPS=[
+  {elem:0, name:'Fire', need:3, desc:'Cast Fire 3 times (press 1, then click)'},
+  {elem:1, name:'Water', need:3, desc:'Cast Water 3 times (press 2, then click)'},
+  {elem:2, name:'Earth', need:3, desc:'Cast Earth 3 times (press 3, then click)'},
+  {elem:3, name:'Wind', need:3, desc:'Cast Wind 3 times (press 4, then click)'},
+  {combo:'Steam Blast', need:2, desc:'Combo: Press 1 then 2 quickly (Fire+Water)'},
+  {combo:'Lava Pool', need:2, desc:'Combo: Press 1 then 3 quickly (Fire+Earth)'},
+  {combo:'Firestorm', need:2, desc:'Combo: Press 1 then 4 quickly (Fire+Wind)'},
+  {combo:'Mud Trap', need:2, desc:'Combo: Press 2 then 3 quickly (Water+Earth)'},
+  {combo:'Ice Shard', need:2, desc:'Combo: Press 2 then 4 quickly (Water+Wind)'},
+  {combo:'Sandstorm', need:2, desc:'Combo: Press 3 then 4 quickly (Earth+Wind)'},
+];
 let dt=0, lastTime=0;
 let camX=0, camY=0;
 // joystick
 let joyActive=false, joyStartX=0, joyStartY=0, joyDX=0, joyDY=0, joyId=-1;
 
+function startTraining(){
+  document.getElementById('start-overlay').classList.add('hidden');
+  document.getElementById('gameover-overlay').classList.add('hidden');
+  document.getElementById('training-hud').style.display='block';
+  document.getElementById('training-exit').style.display='block';
+  playing=true; gameOver=false; trainingMode=true; trainingStep=0;
+  trainingCounts={};
+  player={x:W/2,y:H/2,hp:999,maxHp:999,iframes:0,r:PLAYER_R};
+  enemies=[];projectiles=[];effects=[];particles=[];hazards=[];
+  wave=0;kills=0;score=0;spawnTimer=0;waveEnemiesLeft=0;waveDelay=99999;
+  queuedElem=-1;elemCDs=[0,0,0,0];comboCDTimer=0;screenShake=0;
+  // Spawn training dummies
+  spawnTrainingDummies();
+  updateTrainingUI();
+  lastTime=performance.now();
+  requestAnimationFrame(loop);
+}
+function spawnTrainingDummies(){
+  const positions=[[W/2,H/4],[W/4,H/2],[W*3/4,H/2],[W/2,H*3/4],[W/4,H/4],[W*3/4,H/4]];
+  for(const[px,py] of positions){
+    enemies.push({x:px,y:py,type:'dummy',hp:9999,maxHp:9999,spd:0,r:18,dmg:0,color:'#555',shootCD:0,shootTimer:0,frozen:0,slowed:0,pushX:0,pushY:0});
+  }
+}
+function updateTrainingUI(){
+  const step=TRAINING_STEPS[trainingStep];
+  if(!step){
+    document.getElementById('training-task').textContent='You mastered all elements! Try them freely or exit.';
+    document.getElementById('training-progress').textContent='';
+    return;
+  }
+  const key=step.combo||step.name;
+  const count=trainingCounts[key]||0;
+  document.getElementById('training-task').textContent=step.desc;
+  document.getElementById('training-progress').textContent=count+' / '+step.need;
+}
+function trainingTrack(type, name){
+  if(!trainingMode) return;
+  const step=TRAINING_STEPS[trainingStep];
+  if(!step) return;
+  if(type==='elem' && step.elem!==undefined && name===ELEM_NAMES[step.elem]){
+    trainingCounts[name]=(trainingCounts[name]||0)+1;
+  } else if(type==='combo' && step.combo && name===step.combo){
+    trainingCounts[name]=(trainingCounts[name]||0)+1;
+  }
+  const key=step.combo||step.name;
+  if((trainingCounts[key]||0)>=step.need){
+    trainingStep++;
+    // Respawn dummies
+    enemies=[];
+    spawnTrainingDummies();
+  }
+  updateTrainingUI();
+}
+function exitTraining(){
+  trainingMode=false; playing=false; gameOver=false;
+  document.getElementById('training-hud').style.display='none';
+  document.getElementById('training-exit').style.display='none';
+  document.getElementById('start-overlay').classList.remove('hidden');
+}
 function startGame(){
   document.getElementById('start-overlay').classList.add('hidden');
   document.getElementById('gameover-overlay').classList.add('hidden');
-  playing=true; gameOver=false;
+  document.getElementById('training-hud').style.display='none';
+  document.getElementById('training-exit').style.display='none';
+  playing=true; gameOver=false; trainingMode=false;
   player={x:W/2,y:H/2,hp:10,maxHp:10,iframes:0,r:PLAYER_R};
   enemies=[];projectiles=[];effects=[];particles=[];hazards=[];
   wave=0;kills=0;score=0;spawnTimer=0;waveEnemiesLeft=0;waveDelay=2000;
@@ -237,6 +318,7 @@ function castAttack(){
   if(idx===3){spd=10;dmg=20+wave*2;r=7} // wind - fast
   projectiles.push({x:player.x,y:player.y,vx:Math.cos(angle)*spd,vy:Math.sin(angle)*spd,r,dmg,color:col,trail,life:800,owner:'player',elem:idx});
   spawnParticles(player.x+Math.cos(angle)*20,player.y+Math.sin(angle)*20,col,5,2);
+  trainingTrack('elem',ELEM_NAMES[idx]);
 }
 
 function castCombo(name,e1,e2){
@@ -248,6 +330,7 @@ function castCombo(name,e1,e2){
   let tx=player.x+Math.cos(angle)*120;
   let ty=player.y+Math.sin(angle)*120;
   screenShake=8;
+  trainingTrack('combo',name);
 
   if(name==='Steam Blast'){
     // AoE around target
@@ -491,6 +574,11 @@ function update(dt){
 
 function damageEnemy(idx,dmg){
   let e=enemies[idx];
+  if(trainingMode){
+    // Dummies flash but don't die
+    spawnParticles(e.x,e.y,'#ffd600',4,2);
+    return;
+  }
   e.hp-=dmg;
   if(e.hp<=0){
     spawnParticles(e.x,e.y,e.color,12,3);
