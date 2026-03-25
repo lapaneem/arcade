@@ -451,7 +451,7 @@ function startGame() {
   dead = false; gameRunning = true; screenShake = 0; damageFlashTimer = 0;
   maxHP = 3; hp = maxHP;
   laserCooldown = 0; laserFireRate = 10;
-  shipSpeed = 5; magnetRange = 0;
+  shipSpeed = 5; magnetRange = 8;
   invincibleTimer = 0;
 
   // Clear old objects
@@ -531,7 +531,7 @@ function spawnCrystal(x, z, value) {
     const sp = 0.03 + Math.random() * 0.08;
     const mesh = createCrystalMesh();
     mesh.position.set(x, 0, z);
-    mesh.scale.setScalar(0.8 + Math.random() * 0.4);
+    mesh.scale.setScalar(1.5 + Math.random() * 0.5);
     scene.add(mesh);
     crystalItems.push({
       mesh, x, z,
@@ -876,7 +876,7 @@ function update() {
 
     // Pickup
     const dx = ship.x - c.x, dz = ship.z - c.z;
-    if (dx*dx + dz*dz < (ship.r + 1.5) * (ship.r + 1.5)) {
+    if (dx*dx + dz*dz < (ship.r + 3) * (ship.r + 3)) {
       crystals++;
       score += 5;
       spawnExplosion(c.x, c.z, 0xffd600, 4);
