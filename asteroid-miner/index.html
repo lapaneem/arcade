@@ -83,6 +83,20 @@
     .hud-best { font-size: 12px; color: rgba(255,214,0,0.3); margin-top: 2px; }
     .hud-hp { font-size: 16px; font-weight: 700; margin-top: 4px; color: #ff6d00; }
 
+    .upgrade-bar {
+      display: flex; gap: 10px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; max-width: 420px;
+    }
+    .upgrade-item {
+      padding: 10px 14px; border-radius: 12px; font-size: 13px; font-weight: 600;
+      background: rgba(255,255,255,0.06); color: #ccc; border: 2px solid rgba(255,255,255,0.08);
+      text-align: center; min-width: 90px; cursor: default; transition: transform 0.15s, border-color 0.2s;
+    }
+    .upgrade-item.buyable { cursor: pointer; border-color: rgba(255,214,0,0.4); }
+    .upgrade-item.buyable:hover { transform: scale(1.05); border-color: rgba(255,214,0,0.7); }
+    .upgrade-item .up-name { font-size: 11px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 3px; color: #ffd600; }
+    .upgrade-item .up-desc { font-size: 11px; color: #888; margin-bottom: 4px; }
+    .upgrade-item .up-cost { color: #ffd600; font-weight: 700; }
+
     #damage-flash {
       position: fixed; inset: 0; background: rgba(255,0,0,0.3);
       pointer-events: none; z-index: 4; opacity: 0; transition: opacity 0.1s;
@@ -128,6 +142,13 @@
     <button class="btn btn-sm" id="retry-btn">RETRY</button>
     <button class="btn btn-sm btn-ghost" id="menu-btn">MENU</button>
   </div>
+</div>
+
+<div class="overlay hidden" id="upgrade-screen">
+  <h1 style="font-size:32px;">Upgrades</h1>
+  <div class="subtitle" id="upgrade-crystals">Crystals: 0</div>
+  <div class="upgrade-bar" id="upgrade-bar"></div>
+  <button class="btn btn-sm" id="continue-btn">Continue</button>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -327,10 +348,11 @@ let bestScore = +(localStorage.getItem('asteroid-miner-best') || 0);
 let frameCount = 0, wave = 1, asteroidsMined = 0;
 
 let hp = 3;
-const MAX_HP = 3;
+let maxHP = 3;
 let laserCooldown = 0;
-const LASER_FIRE_RATE = 10;
-const SHIP_SPEED = 5;
+let laserFireRate = 10;
+let shipSpeed = 5;
+let magnetRange = 0;
 let damageFlashTimer = 0;
 let screenShake = 0;
 let invincibleTimer = 0;
@@ -392,10 +414,17 @@ document.getElementById('play-btn').addEventListener('click', startGame);
 document.getElementById('retry-btn').addEventListener('click', startGame);
 document.getElementById('menu-btn').addEventListener('click', showMenu);
 
+document.getElementById('continue-btn').addEventListener('click', () => {
+  document.getElementById('upgrade-screen').classList.add('hidden');
+  gameRunning = true;
+  spawnWave();
+});
+
 function showMenu() {
   gameRunning = false; dead = false;
   document.getElementById('start-screen').classList.remove('hidden');
   document.getElementById('game-over').classList.add('hidden');
+  document.getElementById('upgrade-screen').classList.add('hidden');
   document.getElementById('hud').classList.remove('active');
 }
 
@@ -403,8 +432,9 @@ function startGame() {
   score = 0; crystals = 0; frameCount = 0; wave = 1; asteroidsMined = 0;
   ship.x = 0; ship.z = 0; ship.vx = 0; ship.vz = 0; ship.angle = 0;
   dead = false; gameRunning = true; screenShake = 0; damageFlashTimer = 0;
-  hp = MAX_HP;
-  laserCooldown = 0;
+  maxHP = 3; hp = maxHP;
+  laserCooldown = 0; laserFireRate = 10;
+  shipSpeed = 5; magnetRange = 0;
   invincibleTimer = 0;
 
   // Clear old objects
@@ -419,6 +449,7 @@ function startGame() {
 
   document.getElementById('start-screen').classList.add('hidden');
   document.getElementById('game-over').classList.add('hidden');
+  document.getElementById('upgrade-screen').classList.add('hidden');
   document.getElementById('hud').classList.add('active');
   updateHUD();
 }
@@ -431,7 +462,7 @@ function updateHUD() {
   document.getElementById('hud-best').textContent = 'Best: ' + bestScore;
   const hpEl = document.getElementById('hud-hp-display');
   let hpTxt = 'HP: ';
-  for (let i = 0; i < MAX_HP; i++) hpTxt += i < hp ? '\u2764' : '\u2661';
+  for (let i = 0; i < maxHP; i++) hpTxt += i < hp ? '\u2764' : '\u2661';
   hpEl.textContent = hpTxt;
   hpEl.style.color = hp > 1 ? '#ff6d00' : '#ff2222';
 }
@@ -536,7 +567,7 @@ function spawnEngineParticle() {
 // --- Laser Fire (aims toward mouse/touch) ---
 function fireLaser() {
   if (laserCooldown > 0) return;
-  laserCooldown = LASER_FIRE_RATE;
+  laserCooldown = laserFireRate;
 
   const sinA = Math.sin(ship.angle);
   const cosA = Math.cos(ship.angle);
@@ -589,6 +620,38 @@ function screenToWorld(sx, sy) {
   const target = new THREE.Vector3();
   raycaster.ray.intersectPlane(plane, target);
   return target;
+}
+
+// --- Show Upgrades ---
+function showUpgrades() {
+  gameRunning = false;
+  document.getElementById('upgrade-crystals').textContent = 'Crystals: ' + crystals;
+  const bar = document.getElementById('upgrade-bar');
+  bar.innerHTML = '';
+
+  const upgrades = [
+    { name: 'Rapid Fire', desc: 'Shoot faster', cost: 5, action: () => { if (laserFireRate > 3) laserFireRate -= 2; } },
+    { name: 'Extra HP', desc: '+1 max health', cost: 8, action: () => { maxHP++; hp = maxHP; } },
+    { name: 'Speed', desc: 'Move faster', cost: 5, action: () => { shipSpeed += 1; } },
+    { name: 'Magnet', desc: 'Pull crystals to you', cost: 6, action: () => { magnetRange += 10; } },
+  ];
+
+  upgrades.forEach(up => {
+    const el = document.createElement('div');
+    const canBuy = crystals >= up.cost;
+    el.className = 'upgrade-item' + (canBuy ? ' buyable' : '');
+    el.innerHTML = '<div class="up-name">' + up.name + '</div><div class="up-desc">' + up.desc + '</div><div class="up-cost">' + up.cost + ' crystals</div>';
+    if (canBuy) {
+      el.addEventListener('click', () => {
+        crystals -= up.cost;
+        up.action();
+        showUpgrades(); // refresh
+      });
+    }
+    bar.appendChild(el);
+  });
+
+  document.getElementById('upgrade-screen').classList.remove('hidden');
 }
 
 // ============================================================
@@ -648,7 +711,7 @@ function update() {
   ship.vx *= 0.96;
   ship.vz *= 0.96;
   const spd = Math.sqrt(ship.vx*ship.vx + ship.vz*ship.vz);
-  const maxSpd = SHIP_SPEED * 0.04;
+  const maxSpd = shipSpeed * 0.04;
   if (spd > maxSpd) {
     ship.vx = ship.vx / spd * maxSpd;
     ship.vz = ship.vz / spd * maxSpd;
@@ -781,6 +844,17 @@ function update() {
       c.mesh.material.opacity = (c.life / 60) * 0.85;
     }
 
+    // Magnet pull
+    if (magnetRange > 0) {
+      const mdx = ship.x - c.x, mdz = ship.z - c.z;
+      const mdist = Math.sqrt(mdx*mdx + mdz*mdz);
+      if (mdist < magnetRange && mdist > 0) {
+        const force = (1 - mdist / magnetRange) * 0.02;
+        c.vx += (mdx / mdist) * force;
+        c.vz += (mdz / mdist) * force;
+      }
+    }
+
     // Pickup
     const dx = ship.x - c.x, dz = ship.z - c.z;
     if (dx*dx + dz*dz < (ship.r + 1.5) * (ship.r + 1.5)) {
@@ -828,7 +902,11 @@ function update() {
   // --- Wave check ---
   if (asteroids.length === 0) {
     wave++;
-    spawnWave();
+    if (wave % 3 === 1 && wave > 1) {
+      showUpgrades();
+    } else {
+      spawnWave();
+    }
   }
 
   // Continuous spawning
