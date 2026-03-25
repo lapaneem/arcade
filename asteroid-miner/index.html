@@ -87,8 +87,8 @@
   <div class="subtitle">Mine crystals. Dodge death rocks.</div>
   <div class="controls-info">
     <span>WASD</span> / <span>Arrows</span> / <span>Touch</span> to move<br>
-    Smash <span>small asteroids</span> for crystals<br>
-    Dodge <span>big asteroids</span> or die!
+    <span>Space</span> / <span>Tap</span> to shoot<br>
+    Shoot <span>asteroids</span> for crystals — dodge the rest!
   </div>
   <button class="btn" id="play-btn">MINE</button>
 </div>
@@ -142,7 +142,7 @@ let asteroidsMined = 0;
 // Upgrades
 let shieldHP = 0, maxShield = 0;
 let magnetRange = 0;
-let hasLaser = false, laserCooldown = 0;
+let hasLaser = false, laserCooldown = 0, laserFireRate = 10;
 let shipSpeed = 5;
 
 const ship = { x: 0, y: 0, vx: 0, vy: 0, angle: 0, r: 14 };
@@ -186,7 +186,7 @@ function startGame() {
   ship.x = W / 2; ship.y = H / 2; ship.vx = 0; ship.vy = 0; ship.angle = 0;
   asteroids = []; crystalItems = []; particles = []; lasers = [];
   dead = false; gameRunning = true; screenShake = 0; damageFlash = 0;
-  shieldHP = 0; maxShield = 0; magnetRange = 0; hasLaser = false; laserCooldown = 0;
+  shieldHP = 0; maxShield = 0; magnetRange = 0; hasLaser = true; laserCooldown = 0; laserFireRate = 10;
   shipSpeed = 5;
   spawnWave();
   document.getElementById('start-screen').classList.add('hidden');
@@ -286,7 +286,7 @@ function spawnEngineParticle() {
 // === LASER ===
 function fireLaser() {
   if (!hasLaser || laserCooldown > 0) return;
-  laserCooldown = 20;
+  laserCooldown = laserFireRate;
   lasers.push({
     x: ship.x + Math.cos(ship.angle) * ship.r,
     y: ship.y + Math.sin(ship.angle) * ship.r,
@@ -328,8 +328,8 @@ function showUpgrades() {
       action: () => { magnetRange += 40; } },
     { name: 'Speed', desc: 'Move faster', cost: 3 + Math.floor((shipSpeed-5)*2),
       action: () => { shipSpeed += 0.8; } },
-    { name: 'Laser', desc: hasLaser ? 'Already owned' : 'Shoot asteroids!', cost: 15,
-      action: () => { hasLaser = true; }, disabled: hasLaser },
+    { name: 'Rapid Fire', desc: 'Shoot faster!', cost: 8,
+      action: () => { if (laserFireRate > 3) laserFireRate -= 2; } },
   ];
 
   upgrades.forEach(up => {
@@ -371,8 +371,8 @@ function update() {
     if (dist > 10) { ax = dx/dist; ay = dy/dist; }
   }
 
-  // Laser fire
-  if (keys[' '] || keys['Enter']) fireLaser();
+  // Laser fire (auto-fire always)
+  fireLaser();
 
   // Ship movement
   const len = Math.sqrt(ax*ax + ay*ay);
@@ -442,27 +442,17 @@ function update() {
     const dx = ship.x - a.x, dy = ship.y - a.y;
     const dist = Math.sqrt(dx*dx + dy*dy);
     if (dist < ship.r + a.r * 0.8) {
-      if (a.big) {
-        // Big asteroid = damage
-        if (shieldHP > 0) {
-          shieldHP--;
-          damageFlash = 15;
-          screenShake = 8;
-          spawnExplosion(ship.x, ship.y, '#4fc3f7', 10);
-          // Bounce away
-          const nx = dx/dist, ny = dy/dist;
-          ship.vx = nx * 6; ship.vy = ny * 6;
-          a.vx = -nx * 3; a.vy = -ny * 3;
-        } else {
-          die(); return;
-        }
+      if (shieldHP > 0) {
+        shieldHP--;
+        damageFlash = 15;
+        screenShake = 8;
+        spawnExplosion(ship.x, ship.y, '#4fc3f7', 10);
+        // Bounce away
+        const nx = dx/dist, ny = dy/dist;
+        ship.vx = nx * 6; ship.vy = ny * 6;
+        a.vx = -nx * 3; a.vy = -ny * 3;
       } else {
-        // Small asteroid = mine it!
-        spawnExplosion(a.x, a.y, '#ffd600', 8);
-        spawnCrystal(a.x, a.y, a.crystalValue);
-        score += 10;
-        asteroidsMined++;
-        asteroids.splice(i, 1);
+        die(); return;
       }
     }
   }
