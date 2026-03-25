@@ -65,17 +65,6 @@
     }
     .back-btn:hover { background: rgba(30,30,60,0.9); color: #fff; }
 
-    .upgrade-bar {
-      display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; margin-bottom: 20px; max-width: 400px;
-    }
-    .upgrade-item {
-      padding: 8px 14px; border-radius: 12px; font-size: 12px; font-weight: 600;
-      background: rgba(255,255,255,0.06); color: #888; border: 1px solid rgba(255,255,255,0.08);
-      text-align: center; min-width: 80px;
-    }
-    .upgrade-item .up-name { font-size: 10px; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 2px; }
-    .upgrade-item .up-cost { color: #ffd600; }
-
     #hud {
       position: fixed; top: 0; left: 0; right: 0; z-index: 5;
       pointer-events: none; padding: 12px 16px;
@@ -92,7 +81,7 @@
     .hud-wave { font-size: 13px; color: rgba(255,214,0,0.4); }
     .hud-crystals { font-size: 16px; font-weight: 700; color: #ffd600; }
     .hud-best { font-size: 12px; color: rgba(255,214,0,0.3); margin-top: 2px; }
-    .hud-shield { font-size: 14px; font-weight: 700; margin-top: 4px; }
+    .hud-hp { font-size: 16px; font-weight: 700; margin-top: 4px; color: #ff6d00; }
 
     #damage-flash {
       position: fixed; inset: 0; background: rgba(255,0,0,0.3);
@@ -107,7 +96,7 @@
 
 <div id="hud">
   <div id="hud-left">
-    <div id="hud-shield-display" class="hud-shield"></div>
+    <div id="hud-hp-display" class="hud-hp"></div>
   </div>
   <div id="hud-center">
     <div class="hud-score" id="hud-score">0</div>
@@ -121,13 +110,13 @@
 
 <div class="overlay" id="start-screen">
   <h1>Asteroid Miner</h1>
-  <div class="subtitle">Mine crystals. Dodge death rocks.</div>
-  <div class="controls-info">
-    <span>WASD</span> / <span>Arrows</span> / <span>Touch</span> to move<br>
-    Auto-fires <span>lasers</span> forward<br>
-    Shoot <span>asteroids</span> for crystals — dodge the rest!
+  <div class="subtitle">Shoot asteroids. Collect crystals. Survive.</div>
+  <div class="controls-info" id="controls-info">
+    <span>WASD</span> to move &bull; <span>Mouse</span> to aim<br>
+    Auto-fires <span>lasers</span> at cursor<br>
+    <span>Touch</span> to move and aim
   </div>
-  <button class="btn" id="play-btn">MINE</button>
+  <button class="btn" id="play-btn">PLAY</button>
 </div>
 
 <div class="overlay hidden" id="game-over">
@@ -141,17 +130,10 @@
   </div>
 </div>
 
-<div class="overlay hidden" id="upgrade-screen">
-  <h1 style="font-size:32px;">Upgrades</h1>
-  <div class="subtitle" id="crystal-count">Crystals: 0</div>
-  <div class="upgrade-bar" id="upgrade-bar"></div>
-  <button class="btn btn-sm" id="continue-btn">Continue</button>
-</div>
-
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
 // ============================================================
-// ASTEROID MINER — 3D (Three.js r128)
+// ASTEROID MINER — Simplified Top-Down (Three.js r128)
 // ============================================================
 
 // --- Three.js Setup ---
@@ -163,11 +145,10 @@ renderer.shadowMap.enabled = false;
 document.body.insertBefore(renderer.domElement, document.body.firstChild);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x0a0a1a, 0.0015);
+scene.fog = new THREE.FogExp2(0x0a0a1a, 0.0008);
 
+// Top-down camera
 const camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 2000);
-camera.position.set(0, 18, -22);
-camera.lookAt(0, 0, 10);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -191,7 +172,7 @@ scene.add(hemiLight);
   const positions = new Float32Array(starCount * 3);
   for (let i = 0; i < starCount; i++) {
     positions[i*3] = (Math.random() - 0.5) * 1600;
-    positions[i*3+1] = (Math.random() - 0.5) * 1000;
+    positions[i*3+1] = -20 - Math.random() * 200;
     positions[i*3+2] = (Math.random() - 0.5) * 1600;
   }
   starGeo.setAttribute('position', new THREE.BufferAttribute(positions, 3));
@@ -203,7 +184,6 @@ scene.add(hemiLight);
 const matGold = new THREE.MeshStandardMaterial({ color: 0xffd600, emissive: 0xffd600, emissiveIntensity: 0.3, metalness: 0.8, roughness: 0.3 });
 const matOrange = new THREE.MeshStandardMaterial({ color: 0xff6d00, emissive: 0xff6d00, emissiveIntensity: 0.2 });
 const matWhite = new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 });
-const matShield = new THREE.MeshStandardMaterial({ color: 0x4fc3f7, emissive: 0x4fc3f7, emissiveIntensity: 0.3, transparent: true, opacity: 0.15, side: THREE.DoubleSide });
 const matLaser = new THREE.MeshBasicMaterial({ color: 0xff2222 });
 const matCrystal = new THREE.MeshStandardMaterial({ color: 0xffd600, emissive: 0xffd600, emissiveIntensity: 0.6, metalness: 1.0, roughness: 0.1, transparent: true, opacity: 0.85 });
 
@@ -211,7 +191,7 @@ const matCrystal = new THREE.MeshStandardMaterial({ color: 0xffd600, emissive: 0
 function createShipMesh() {
   const group = new THREE.Group();
 
-  // Main fuselage — elongated shape
+  // Main fuselage
   const bodyGeo = new THREE.ConeGeometry(0.8, 4, 4);
   bodyGeo.rotateX(Math.PI / 2);
   const body = new THREE.Mesh(bodyGeo, matGold);
@@ -225,7 +205,7 @@ function createShipMesh() {
   cockpit.scale.set(1, 0.6, 1.2);
   group.add(cockpit);
 
-  // Left wing
+  // Wings
   const wingGeo = new THREE.BoxGeometry(3.5, 0.1, 1.8);
   const wingMat = new THREE.MeshStandardMaterial({ color: 0xff8800, emissive: 0xff6d00, emissiveIntensity: 0.15, metalness: 0.5, roughness: 0.4 });
   const leftWing = new THREE.Mesh(wingGeo, wingMat);
@@ -233,8 +213,6 @@ function createShipMesh() {
   leftWing.rotation.z = -0.1;
   leftWing.rotation.y = 0.15;
   group.add(leftWing);
-
-  // Right wing
   const rightWing = new THREE.Mesh(wingGeo, wingMat);
   rightWing.position.set(1.6, 0, -0.3);
   rightWing.rotation.z = 0.1;
@@ -277,17 +255,9 @@ function createShipMesh() {
   glowMeshR.position.set(0.6, -0.05, -2.2);
   group.add(glowMeshR);
 
-  // Shield sphere (initially invisible)
-  const shieldGeo = new THREE.SphereGeometry(3.5, 16, 12);
-  const shieldMesh = new THREE.Mesh(shieldGeo, matShield.clone());
-  shieldMesh.visible = false;
-  shieldMesh.name = 'shield';
-  group.add(shieldMesh);
-
   group.engineGlowLight = engineGlowLight;
   group.glowMeshL = glowMeshL;
   group.glowMeshR = glowMeshR;
-  group.shieldMesh = shieldMesh;
 
   return group;
 }
@@ -295,10 +265,9 @@ function createShipMesh() {
 const shipMesh = createShipMesh();
 scene.add(shipMesh);
 
-// --- Create Asteroid Mesh ---
-function createAsteroidMesh(radius, isBig) {
-  const detail = isBig ? 1 : 0;
-  const geo = isBig ? new THREE.IcosahedronGeometry(radius, detail) : new THREE.DodecahedronGeometry(radius, detail);
+// --- Create Asteroid Mesh (all same style: brownish rock) ---
+function createAsteroidMesh(radius) {
+  const geo = new THREE.DodecahedronGeometry(radius, 0);
 
   // Randomize vertices for rocky look
   const pos = geo.attributes.position;
@@ -310,30 +279,16 @@ function createAsteroidMesh(radius, isBig) {
   }
   geo.computeVertexNormals();
 
-  const baseColor = isBig ? 0x5c4a32 : 0x7a6b50;
-  const emissiveColor = isBig ? 0xff2222 : 0xffd600;
-  const emissiveIntensity = isBig ? 0.15 : 0.08;
-
   const mat = new THREE.MeshStandardMaterial({
-    color: baseColor,
-    emissive: emissiveColor,
-    emissiveIntensity: emissiveIntensity,
+    color: 0x6b5b42,
+    emissive: 0x3a3020,
+    emissiveIntensity: 0.1,
     roughness: 0.85,
     metalness: 0.1,
     flatShading: true,
   });
 
   const mesh = new THREE.Mesh(geo, mat);
-
-  // Glow light
-  if (isBig) {
-    const glow = new THREE.PointLight(0xff4444, 1.0, radius * 4);
-    mesh.add(glow);
-  } else {
-    const glow = new THREE.PointLight(0xffd600, 0.4, radius * 3);
-    mesh.add(glow);
-  }
-
   return mesh;
 }
 
@@ -367,20 +322,21 @@ function createParticleMesh(color, size) {
 // GAME STATE
 // ============================================================
 let gameRunning = false, dead = false;
-let score = 0, crystals = 0, totalCrystals = 0;
+let score = 0, crystals = 0;
 let bestScore = +(localStorage.getItem('asteroid-miner-best') || 0);
 let frameCount = 0, wave = 1, asteroidsMined = 0;
 
-// Upgrades
-let shieldHP = 0, maxShield = 0;
-let magnetRange = 0;
-let hasLaser = true, laserCooldown = 0, laserFireRate = 10;
-let shipSpeed = 5;
+let hp = 3;
+const MAX_HP = 3;
+let laserCooldown = 0;
+const LASER_FIRE_RATE = 10;
+const SHIP_SPEED = 5;
 let damageFlashTimer = 0;
 let screenShake = 0;
+let invincibleTimer = 0;
 
-// Ship state (in game-world XZ plane: X = left/right, Z = forward/back)
-const ship = { x: 0, z: 0, vx: 0, vz: 0, angle: 0, targetAngle: 0, r: 2 };
+// Ship state
+const ship = { x: 0, z: 0, vx: 0, vz: 0, angle: 0, r: 2 };
 
 // Game arrays
 let asteroids = [];
@@ -393,57 +349,63 @@ const FIELD_W = 120;
 const FIELD_H = 80;
 
 const keys = {};
-let touchTarget = null;
+let mouseWorld = { x: 0, z: 0 };
+let mouseScreenX = window.innerWidth / 2;
+let mouseScreenY = window.innerHeight / 2;
+let isTouching = false;
+let touchMoveTarget = null;
 
 // --- Input ---
 document.addEventListener('keydown', e => { keys[e.key] = true; });
 document.addEventListener('keyup', e => { keys[e.key] = false; });
 
+// Mouse tracking (always track for aiming)
+renderer.domElement.addEventListener('mousemove', e => {
+  mouseScreenX = e.clientX;
+  mouseScreenY = e.clientY;
+});
+
+// Touch: touch position drives both movement and aiming
 renderer.domElement.addEventListener('touchstart', e => {
   e.preventDefault();
+  isTouching = true;
   const t = e.touches[0];
-  touchTarget = { x: t.clientX, y: t.clientY };
+  touchMoveTarget = { x: t.clientX, y: t.clientY };
+  mouseScreenX = t.clientX;
+  mouseScreenY = t.clientY;
 }, { passive: false });
 renderer.domElement.addEventListener('touchmove', e => {
   e.preventDefault();
   const t = e.touches[0];
-  touchTarget = { x: t.clientX, y: t.clientY };
+  touchMoveTarget = { x: t.clientX, y: t.clientY };
+  mouseScreenX = t.clientX;
+  mouseScreenY = t.clientY;
 }, { passive: false });
 renderer.domElement.addEventListener('touchend', e => {
   e.preventDefault();
-  touchTarget = null;
+  isTouching = false;
+  touchMoveTarget = null;
 }, { passive: false });
-renderer.domElement.addEventListener('mousedown', e => {
-  touchTarget = { x: e.clientX, y: e.clientY };
-});
-renderer.domElement.addEventListener('mousemove', e => {
-  if (touchTarget) touchTarget = { x: e.clientX, y: e.clientY };
-});
-renderer.domElement.addEventListener('mouseup', () => { touchTarget = null; });
 
 // --- Buttons ---
 document.getElementById('play-btn').addEventListener('click', startGame);
 document.getElementById('retry-btn').addEventListener('click', startGame);
 document.getElementById('menu-btn').addEventListener('click', showMenu);
-document.getElementById('continue-btn').addEventListener('click', () => {
-  document.getElementById('upgrade-screen').classList.add('hidden');
-  gameRunning = true;
-});
 
 function showMenu() {
   gameRunning = false; dead = false;
   document.getElementById('start-screen').classList.remove('hidden');
   document.getElementById('game-over').classList.add('hidden');
-  document.getElementById('upgrade-screen').classList.add('hidden');
   document.getElementById('hud').classList.remove('active');
 }
 
 function startGame() {
   score = 0; crystals = 0; frameCount = 0; wave = 1; asteroidsMined = 0;
-  ship.x = 0; ship.z = 0; ship.vx = 0; ship.vz = 0; ship.angle = 0; ship.targetAngle = 0;
+  ship.x = 0; ship.z = 0; ship.vx = 0; ship.vz = 0; ship.angle = 0;
   dead = false; gameRunning = true; screenShake = 0; damageFlashTimer = 0;
-  shieldHP = 0; maxShield = 0; magnetRange = 0; hasLaser = true; laserCooldown = 0; laserFireRate = 10;
-  shipSpeed = 5;
+  hp = MAX_HP;
+  laserCooldown = 0;
+  invincibleTimer = 0;
 
   // Clear old objects
   for (const a of asteroids) scene.remove(a.mesh);
@@ -457,7 +419,6 @@ function startGame() {
 
   document.getElementById('start-screen').classList.add('hidden');
   document.getElementById('game-over').classList.add('hidden');
-  document.getElementById('upgrade-screen').classList.add('hidden');
   document.getElementById('hud').classList.add('active');
   updateHUD();
 }
@@ -468,15 +429,11 @@ function updateHUD() {
   document.getElementById('hud-wave').textContent = 'Wave ' + wave;
   document.getElementById('hud-crystals').textContent = crystals + ' crystals';
   document.getElementById('hud-best').textContent = 'Best: ' + bestScore;
-  const shieldEl = document.getElementById('hud-shield-display');
-  if (maxShield > 0) {
-    let txt = 'Shield: ';
-    for (let i = 0; i < maxShield; i++) txt += i < shieldHP ? '\u25CF' : '\u25CB';
-    shieldEl.textContent = txt;
-    shieldEl.style.color = shieldHP > 0 ? '#4fc3f7' : '#334';
-  } else {
-    shieldEl.textContent = '';
-  }
+  const hpEl = document.getElementById('hud-hp-display');
+  let hpTxt = 'HP: ';
+  for (let i = 0; i < MAX_HP; i++) hpTxt += i < hp ? '\u2764' : '\u2661';
+  hpEl.textContent = hpTxt;
+  hpEl.style.color = hp > 1 ? '#ff6d00' : '#ff2222';
 }
 
 // --- Spawn Wave ---
@@ -495,13 +452,12 @@ function spawnAsteroid() {
   else { x = (Math.random() - 0.5) * FIELD_W; z = hh; }
 
   const diff = Math.min(wave / 10, 1);
-  const isBig = Math.random() < 0.3 + diff * 0.2;
-  const r = isBig ? 2.5 + Math.random() * 2 : 1 + Math.random() * 1.2;
-  const speed = (0.03 + Math.random() * 0.06 + diff * 0.04) * (isBig ? 0.7 : 1);
+  const r = 1.5 + Math.random() * 1.0;
+  const speed = 0.03 + Math.random() * 0.06 + diff * 0.03;
 
   const angle = Math.atan2(-z + (Math.random()-0.5)*FIELD_H*0.6, -x + (Math.random()-0.5)*FIELD_W*0.6);
 
-  const mesh = createAsteroidMesh(r, isBig);
+  const mesh = createAsteroidMesh(r);
   mesh.position.set(x, 0, z);
   mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
   scene.add(mesh);
@@ -510,12 +466,12 @@ function spawnAsteroid() {
     mesh, x, z,
     vx: Math.cos(angle) * speed,
     vz: Math.sin(angle) * speed,
-    r, big: isBig,
-    hp: isBig ? 3 : 1,
+    r,
+    hp: 1,
     spinX: (Math.random() - 0.5) * 0.02,
     spinY: (Math.random() - 0.5) * 0.02,
     spinZ: (Math.random() - 0.5) * 0.02,
-    crystalValue: isBig ? 0 : Math.ceil(Math.random() * 3),
+    crystalValue: Math.ceil(Math.random() * 3),
   });
 }
 
@@ -577,15 +533,16 @@ function spawnEngineParticle() {
   });
 }
 
-// --- Laser Fire ---
+// --- Laser Fire (aims toward mouse/touch) ---
 function fireLaser() {
-  if (!hasLaser || laserCooldown > 0) return;
-  laserCooldown = laserFireRate;
+  if (laserCooldown > 0) return;
+  laserCooldown = LASER_FIRE_RATE;
 
-  const offsets = [-0.6, 0.6]; // two guns on wings
+  const sinA = Math.sin(ship.angle);
+  const cosA = Math.cos(ship.angle);
+
+  const offsets = [-0.6, 0.6];
   for (const ox of offsets) {
-    const sinA = Math.sin(ship.angle);
-    const cosA = Math.cos(ship.angle);
     const sx = ship.x + sinA * 2 + cosA * ox;
     const sz = ship.z + cosA * 2 - sinA * ox;
     const mesh = createLaserMesh();
@@ -615,48 +572,23 @@ function die() {
   setTimeout(() => {
     document.getElementById('final-score').textContent = score;
     document.getElementById('best-score').textContent = 'Best: ' + bestScore;
-    document.getElementById('stats-text').textContent = 'Wave ' + wave + ' | ' + asteroidsMined + ' asteroids mined | ' + (totalCrystals + crystals) + ' crystals';
+    document.getElementById('stats-text').textContent = 'Wave ' + wave + ' | ' + asteroidsMined + ' asteroids mined | ' + crystals + ' crystals';
     document.getElementById('game-over').classList.remove('hidden');
   }, 800);
 }
 
-// --- Upgrades ---
-function showUpgrades() {
-  gameRunning = false;
-  totalCrystals += crystals;
-  document.getElementById('crystal-count').textContent = 'Crystals: ' + crystals;
-  const bar = document.getElementById('upgrade-bar');
-  bar.innerHTML = '';
-
-  const upgrades = [
-    { name: 'Shield', desc: maxShield === 0 ? 'Survive 1 hit' : '+1 shield HP', cost: maxShield === 0 ? 5 : 8 + maxShield * 3,
-      action: () => { maxShield++; shieldHP = maxShield; } },
-    { name: 'Magnet', desc: 'Pull crystals', cost: magnetRange === 0 ? 4 : 6 + Math.floor(magnetRange / 8),
-      action: () => { magnetRange += 8; } },
-    { name: 'Speed', desc: 'Move faster', cost: 3 + Math.floor((shipSpeed-5)*2),
-      action: () => { shipSpeed += 0.8; } },
-    { name: 'Rapid Fire', desc: 'Shoot faster!', cost: 8,
-      action: () => { if (laserFireRate > 3) laserFireRate -= 2; } },
-  ];
-
-  upgrades.forEach(up => {
-    const el = document.createElement('div');
-    el.className = 'upgrade-item';
-    const canBuy = crystals >= up.cost;
-    el.style.borderColor = canBuy ? 'rgba(255,214,0,0.4)' : 'rgba(255,255,255,0.08)';
-    el.style.cursor = canBuy ? 'pointer' : 'default';
-    el.innerHTML = '<div class="up-name">' + up.name + '</div><div>' + up.desc + '</div><div class="up-cost">' + up.cost + ' crystals</div>';
-    if (canBuy) {
-      el.addEventListener('click', () => {
-        crystals -= up.cost;
-        up.action();
-        showUpgrades();
-      });
-    }
-    bar.appendChild(el);
-  });
-
-  document.getElementById('upgrade-screen').classList.remove('hidden');
+// --- Unproject mouse to world XZ plane ---
+function screenToWorld(sx, sy) {
+  const ndc = new THREE.Vector2(
+    (sx / window.innerWidth) * 2 - 1,
+    -(sy / window.innerHeight) * 2 + 1
+  );
+  const raycaster = new THREE.Raycaster();
+  raycaster.setFromCamera(ndc, camera);
+  const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const target = new THREE.Vector3();
+  raycaster.ray.intersectPlane(plane, target);
+  return target;
 }
 
 // ============================================================
@@ -666,19 +598,34 @@ function update() {
   if (!gameRunning) return;
   frameCount++;
 
-  // --- Input ---
+  // --- Mouse/touch -> world for aiming ---
+  const worldAim = screenToWorld(mouseScreenX, mouseScreenY);
+  if (worldAim) {
+    mouseWorld.x = worldAim.x;
+    mouseWorld.z = worldAim.z;
+  }
+
+  // --- Ship faces mouse/touch ---
+  const aimDx = mouseWorld.x - ship.x;
+  const aimDz = mouseWorld.z - ship.z;
+  const aimDist = Math.sqrt(aimDx * aimDx + aimDz * aimDz);
+  if (aimDist > 0.5) {
+    ship.angle = Math.atan2(aimDx, aimDz);
+  }
+
+  // --- Movement Input ---
   let ax = 0, az = 0;
   if (keys['w'] || keys['W'] || keys['ArrowUp']) az += 1;
   if (keys['s'] || keys['S'] || keys['ArrowDown']) az -= 1;
   if (keys['a'] || keys['A'] || keys['ArrowLeft']) ax -= 1;
   if (keys['d'] || keys['D'] || keys['ArrowRight']) ax += 1;
 
-  if (touchTarget) {
-    // Convert screen touch to movement direction
+  // Touch: move toward touch position
+  if (isTouching && touchMoveTarget) {
     const cx = window.innerWidth / 2;
     const cy = window.innerHeight / 2;
-    const dx = touchTarget.x - cx;
-    const dy = -(touchTarget.y - cy); // invert Y: screen down = game backward
+    const dx = touchMoveTarget.x - cx;
+    const dy = -(touchMoveTarget.y - cy);
     const dist = Math.sqrt(dx*dx + dy*dy);
     if (dist > 15) {
       ax = dx / dist;
@@ -695,14 +642,13 @@ function update() {
     ax /= len; az /= len;
     ship.vx += ax * 0.012;
     ship.vz += az * 0.012;
-    ship.targetAngle = Math.atan2(ax, az);
     if (frameCount % 3 === 0) spawnEngineParticle();
   }
 
   ship.vx *= 0.96;
   ship.vz *= 0.96;
   const spd = Math.sqrt(ship.vx*ship.vx + ship.vz*ship.vz);
-  const maxSpd = shipSpeed * 0.04;
+  const maxSpd = SHIP_SPEED * 0.04;
   if (spd > maxSpd) {
     ship.vx = ship.vx / spd * maxSpd;
     ship.vz = ship.vz / spd * maxSpd;
@@ -710,12 +656,6 @@ function update() {
 
   ship.x += ship.vx;
   ship.z += ship.vz;
-
-  // Smooth angle interpolation
-  let angleDiff = ship.targetAngle - ship.angle;
-  while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
-  while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
-  ship.angle += angleDiff * 0.1;
 
   // Wrap around field
   const hw = FIELD_W / 2, hh = FIELD_H / 2;
@@ -727,11 +667,8 @@ function update() {
   // Update ship mesh
   shipMesh.position.set(ship.x, 0, ship.z);
   shipMesh.rotation.y = ship.angle;
-  // Bank when turning
-  const bankAmount = -angleDiff * 2;
-  shipMesh.rotation.z = THREE.MathUtils.clamp(bankAmount, -0.5, 0.5);
-  // Slight pitch based on speed
-  shipMesh.rotation.x = -spd * 3;
+  shipMesh.rotation.z = 0;
+  shipMesh.rotation.x = 0;
 
   // Engine glow intensity based on speed
   const glowIntensity = 0.5 + (spd / maxSpd) * 3;
@@ -740,14 +677,13 @@ function update() {
   shipMesh.glowMeshL.scale.setScalar(glowScale);
   shipMesh.glowMeshR.scale.setScalar(glowScale);
 
-  // Shield visual
-  if (maxShield > 0) {
-    shipMesh.shieldMesh.visible = true;
-    shipMesh.shieldMesh.material.opacity = shieldHP > 0 ? 0.1 + Math.sin(frameCount * 0.05) * 0.05 : 0.02;
-    shipMesh.shieldMesh.material.color.setHex(shieldHP > 0 ? 0x4fc3f7 : 0x223344);
-    shipMesh.shieldMesh.material.emissive.setHex(shieldHP > 0 ? 0x4fc3f7 : 0x112233);
+  // Invincibility timer (after taking damage)
+  if (invincibleTimer > 0) {
+    invincibleTimer--;
+    // Blink ship
+    shipMesh.visible = Math.floor(invincibleTimer / 4) % 2 === 0;
   } else {
-    shipMesh.shieldMesh.visible = false;
+    shipMesh.visible = true;
   }
 
   // --- Asteroids ---
@@ -789,9 +725,9 @@ function update() {
         l.life = 0;
         spawnExplosion(l.x, l.z, 0xffd600, 5);
         if (a.hp <= 0) {
-          spawnExplosion(a.x, a.z, a.big ? 0x8b7355 : 0xa0926b, 15);
+          spawnExplosion(a.x, a.z, 0xa0926b, 15);
           if (a.crystalValue > 0) spawnCrystal(a.x, a.z, a.crystalValue);
-          score += a.big ? 25 : 10;
+          score += 10;
           asteroidsMined++;
           scene.remove(a.mesh);
           asteroids.splice(i, 1);
@@ -802,21 +738,28 @@ function update() {
   }
 
   // --- Ship-Asteroid Collision ---
-  for (let i = asteroids.length - 1; i >= 0; i--) {
-    const a = asteroids[i];
-    const dx = ship.x - a.x, dz = ship.z - a.z;
-    const dist = Math.sqrt(dx*dx + dz*dz);
-    if (dist < ship.r + a.r * 0.8) {
-      if (shieldHP > 0) {
-        shieldHP--;
+  if (invincibleTimer <= 0) {
+    for (let i = asteroids.length - 1; i >= 0; i--) {
+      const a = asteroids[i];
+      const dx = ship.x - a.x, dz = ship.z - a.z;
+      const dist = Math.sqrt(dx*dx + dz*dz);
+      if (dist < ship.r + a.r * 0.8) {
+        hp--;
         damageFlashTimer = 15;
-        screenShake = 8;
-        spawnExplosion(ship.x, ship.z, 0x4fc3f7, 10);
+        screenShake = 10;
+        invincibleTimer = 60; // ~1 second invincibility
+
+        // Bounce
         const nx = dx/dist, nz = dz/dist;
         ship.vx = nx * 0.15; ship.vz = nz * 0.15;
         a.vx = -nx * 0.08; a.vz = -nz * 0.08;
-      } else {
-        die(); return;
+
+        spawnExplosion(ship.x, ship.z, 0xff6d00, 10);
+
+        if (hp <= 0) {
+          die(); return;
+        }
+        break;
       }
     }
   }
@@ -836,17 +779,6 @@ function update() {
     // Fade out
     if (c.life < 60) {
       c.mesh.material.opacity = (c.life / 60) * 0.85;
-    }
-
-    // Magnet pull
-    if (magnetRange > 0) {
-      const dx = ship.x - c.x, dz = ship.z - c.z;
-      const dist = Math.sqrt(dx*dx + dz*dz);
-      if (dist < magnetRange && dist > 0) {
-        const force = (1 - dist / magnetRange) * 0.015;
-        c.vx += (dx / dist) * force;
-        c.vz += (dz / dist) * force;
-      }
     }
 
     // Pickup
@@ -896,11 +828,7 @@ function update() {
   // --- Wave check ---
   if (asteroids.length === 0) {
     wave++;
-    if (wave % 3 === 1 && wave > 1) {
-      showUpgrades();
-    } else {
-      spawnWave();
-    }
+    spawnWave();
   }
 
   // Continuous spawning
@@ -912,41 +840,31 @@ function update() {
 }
 
 // ============================================================
-// CAMERA
+// CAMERA — Top-down, looking straight down
 // ============================================================
-const cameraOffset = new THREE.Vector3(0, 18, -22);
-const cameraLookOffset = new THREE.Vector3(0, 0, 15);
+const CAM_HEIGHT = 55;
 
 function updateCamera() {
-  // Follow ship smoothly
   let tx, tz;
   if (gameRunning || dead) {
     tx = ship.x;
     tz = ship.z;
   } else {
-    // Idle orbit
+    // Idle slow orbit
     tx = Math.cos(Date.now() * 0.0003) * 10;
     tz = Math.sin(Date.now() * 0.0003) * 10;
   }
 
-  const targetPos = new THREE.Vector3(tx + cameraOffset.x, cameraOffset.y, tz + cameraOffset.z);
-  const targetLook = new THREE.Vector3(tx + cameraLookOffset.x, cameraLookOffset.y, tz + cameraLookOffset.z);
+  const targetPos = new THREE.Vector3(tx, CAM_HEIGHT, tz);
 
   // Screen shake
   if (screenShake > 0) {
     targetPos.x += (Math.random() - 0.5) * screenShake * 0.3;
-    targetPos.y += (Math.random() - 0.5) * screenShake * 0.2;
     targetPos.z += (Math.random() - 0.5) * screenShake * 0.3;
   }
 
-  camera.position.lerp(targetPos, 0.06);
-  const currentLook = new THREE.Vector3();
-  camera.getWorldDirection(currentLook);
-  camera.lookAt(
-    camera.position.x + (targetLook.x - camera.position.x) * 0.1,
-    0,
-    camera.position.z + (targetLook.z - camera.position.z) * 0.1
-  );
+  camera.position.lerp(targetPos, 0.08);
+  camera.lookAt(camera.position.x, 0, camera.position.z);
 }
 
 // ============================================================
@@ -955,14 +873,12 @@ function updateCamera() {
 let idleAsteroids = [];
 
 function setupIdle() {
-  // Place some floating asteroids for the menu background
   for (let i = 0; i < 8; i++) {
-    const r = 1.5 + Math.random() * 2;
-    const isBig = Math.random() > 0.5;
-    const mesh = createAsteroidMesh(r, isBig);
+    const r = 1.5 + Math.random() * 1.0;
+    const mesh = createAsteroidMesh(r);
     const angle = (i / 8) * Math.PI * 2;
     const dist = 15 + Math.random() * 20;
-    mesh.position.set(Math.cos(angle) * dist, (Math.random()-0.5)*3, Math.sin(angle) * dist);
+    mesh.position.set(Math.cos(angle) * dist, 0, Math.sin(angle) * dist);
     scene.add(mesh);
     idleAsteroids.push({
       mesh,
@@ -985,10 +901,10 @@ function updateIdle() {
   }
   // Idle ship animation
   const t = Date.now() * 0.001;
-  shipMesh.position.set(Math.cos(t * 0.5) * 3, Math.sin(t * 0.7) * 0.5, Math.sin(t * 0.3) * 3);
+  shipMesh.position.set(Math.cos(t * 0.5) * 3, 0, Math.sin(t * 0.3) * 3);
   shipMesh.rotation.y = t * 0.3;
-  shipMesh.rotation.z = Math.sin(t * 0.8) * 0.15;
-  shipMesh.rotation.x = Math.sin(t * 0.5) * 0.05;
+  shipMesh.rotation.z = 0;
+  shipMesh.rotation.x = 0;
   shipMesh.visible = true;
 }
 
