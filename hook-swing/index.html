@@ -18,19 +18,22 @@ canvas {
   display: block;
   width: 100vw;
   height: 100vh;
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1;
 }
 .overlay {
   position: fixed;
-  top: 0; left: 0; right: 0; bottom: 0;
+  top: 0; left: 0; width: 100%; height: 100%;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: rgba(10,10,26,0.92);
-  z-index: 10;
-  transition: opacity 0.3s;
+  background: rgba(10,10,26,0.95);
+  z-index: 50;
 }
-.overlay.hidden { opacity: 0; pointer-events: none; }
+.overlay.hidden { display: none; }
 h1 {
   font-size: 3rem;
   color: #00e5ff;
