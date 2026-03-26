@@ -92,7 +92,7 @@ button:hover {
 </head>
 <body>
 <a href="../index.html" class="back-btn">Back</a>
-<canvas id="c"></canvas>
+<canvas id="c" style="display:none"></canvas>
 
 <div class="overlay" id="startScreen">
   <h1>HOOK SWING</h1>
@@ -439,6 +439,7 @@ function update(dt) {
 
 function gameOver() {
   state = 'gameover';
+  canvas.style.display = 'none';
   if (distance > bestDistance) {
     bestDistance = distance;
     localStorage.setItem('hookSwingBest', bestDistance);
@@ -757,6 +758,10 @@ function draw() {
 }
 
 function loop(timestamp) {
+  if (state === 'menu' || state === 'gameover') {
+    requestAnimationFrame(loop);
+    return;
+  }
   const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
   lastTime = timestamp;
 
@@ -799,14 +804,18 @@ canvas.addEventListener('contextmenu', e => e.preventDefault());
 
 document.getElementById('playBtn').addEventListener('click', () => {
   startScreen.classList.add('hidden');
+  canvas.style.display = 'block';
   init();
   state = 'playing';
+  lastTime = performance.now();
 });
 
 document.getElementById('retryBtn').addEventListener('click', () => {
   gameOverScreen.classList.add('hidden');
+  canvas.style.display = 'block';
   init();
   state = 'playing';
+  lastTime = performance.now();
 });
 
 // Start loop
