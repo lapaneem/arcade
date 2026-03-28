@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
-<title>KTBM - Drone Game</title>
+<title>KTBM - Tap the Drones!</title>
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body {
@@ -21,8 +21,8 @@ canvas {
 }
 #mute-btn {
   position: fixed;
-  top: 12px;
-  left: 12px;
+  bottom: 12px;
+  right: 12px;
   z-index: 100;
   background: rgba(0,0,0,0.5);
   border: 2px solid rgba(100,180,255,0.6);
@@ -41,7 +41,8 @@ canvas {
 #back-btn {
   position: fixed;
   top: 12px;
-  right: 12px;
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 100;
   background: rgba(0,0,0,0.5);
   border: 2px solid rgba(100,180,255,0.6);
@@ -54,49 +55,53 @@ canvas {
   backdrop-filter: blur(4px);
 }
 #back-btn:hover { background: rgba(100,180,255,0.3); }
+#music-container {
+  position: fixed;
+  bottom: 60px;
+  right: 10px;
+  z-index: 100;
+  border-radius: 12px;
+  overflow: hidden;
+  box-shadow: 0 0 20px rgba(79,195,247,0.5);
+}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
-<button id="mute-btn">🔊</button>
-<a id="back-btn" href="../index.html">← Back</a>
-<audio id="music" loop preload="none">
-  <source src="https://cdn.pianorhythm.io/proxy/yt/yoe_f-YYHnQ" type="audio/mpeg">
-</audio>
+<button id="mute-btn">&#x1f50a;</button>
+<a id="back-btn" href="../index.html">Back</a>
+<div id="music-container" style="display:none;"></div>
 
 <script>
-// Music via Audio element
-let musicEl = document.getElementById('music');
-let musicMuted = false;
+// Music
 let musicStarted = false;
+let musicHidden = false;
+const musicContainer = document.getElementById('music-container');
+const muteBtn = document.getElementById('mute-btn');
 
-function loadYouTubeMusic() {
-  if (!musicStarted) {
-    // Fallback: create a visible YouTube embed the user can tap
-    const container = document.createElement('div');
-    container.id = 'music-popup';
-    container.style.cssText = 'position:fixed;bottom:60px;right:10px;z-index:100;border-radius:12px;overflow:hidden;box-shadow:0 0 20px rgba(79,195,247,0.5);';
-    container.innerHTML = '<iframe width="200" height="50" src="https://www.youtube.com/embed/yoe_f-YYHnQ?autoplay=1&loop=1&playlist=yoe_f-YYHnQ" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
-    document.body.appendChild(container);
-    musicStarted = true;
-  }
+function startMusic() {
+  if (musicStarted) return;
+  musicContainer.innerHTML = '<iframe width="200" height="50" src="https://www.youtube.com/embed/yoe_f-YYHnQ?autoplay=1&loop=1&playlist=yoe_f-YYHnQ" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+  musicContainer.style.display = 'block';
+  musicStarted = true;
 }
 
-const muteBtn = document.getElementById('mute-btn');
-muteBtn.addEventListener('click', () => {
-  musicMuted = !musicMuted;
-  const popup = document.getElementById('music-popup');
-  if (popup) popup.style.display = musicMuted ? 'none' : 'block';
-  muteBtn.textContent = musicMuted ? '🔇' : '🔊';
+muteBtn.addEventListener('click', e => {
+  e.stopPropagation();
+  if (!musicStarted) return;
+  musicHidden = !musicHidden;
+  musicContainer.style.display = musicHidden ? 'none' : 'block';
+  muteBtn.innerHTML = musicHidden ? '&#x1f507;' : '&#x1f50a;';
 });
 
-// Canvas setup
+// Canvas
 const canvas = document.getElementById('c');
 const ctx = canvas.getContext('2d');
 let W, H;
 function resize() {
   W = canvas.width = window.innerWidth;
   H = canvas.height = window.innerHeight;
+  initBuildings();
 }
 resize();
 window.addEventListener('resize', resize);
@@ -105,413 +110,542 @@ window.addEventListener('resize', resize);
 const STATE = { MENU: 0, PLAYING: 1, GAMEOVER: 2 };
 let state = STATE.MENU;
 let score = 0;
-let lives = 3;
-let distance = 0;
-let starsCollected = 0;
-let photosCollected = 0;
-let comboCount = 0;
+let lives = 5;
+let combo = 0;
 let comboTimer = 0;
-let speed = 2;
+let comboMultiplier = 1;
 let gameTime = 0;
-let bestScore = parseInt(localStorage.getItem('ktbm_best') || '0');
+let spawnInterval = 90;
+let spawnTimer = 0;
+let difficulty = 1;
+let bestScore = parseInt(localStorage.getItem('ktbm_tap_best') || '0');
+let flyingObjects = [];
+let particles = [];
 let flashTexts = [];
+let screenFlash = 0;
+let screenFlashColor = '';
+let screenShake = 0;
+let clouds = [];
+let buildings = [];
 
-// Drone
-const drone = {
-  x: 0, y: 0,
-  vx: 0, vy: 0,
-  tilt: 0,
-  rotorAngle: 0,
-  invincible: 0,
-  trail: []
-};
+// Cloud init
+function initClouds() {
+  clouds = [];
+  for (let i = 0; i < 12; i++) {
+    clouds.push({
+      x: Math.random() * W * 1.5,
+      y: 30 + Math.random() * (H * 0.5),
+      w: 80 + Math.random() * 160,
+      h: 25 + Math.random() * 35,
+      speed: 0.2 + Math.random() * 0.6,
+      a: 0.08 + Math.random() * 0.15
+    });
+  }
+}
+
+// City silhouette
+function initBuildings() {
+  buildings = [];
+  let x = 0;
+  while (x < W + 100) {
+    const w = 30 + Math.random() * 60;
+    const h = 40 + Math.random() * 120;
+    buildings.push({ x, w, h, windows: [] });
+    const b = buildings[buildings.length - 1];
+    for (let wy = H - h + 10; wy < H - 10; wy += 18) {
+      for (let wx = 5; wx < w - 5; wx += 14) {
+        b.windows.push({ rx: wx, ry: wy - (H - h), lit: Math.random() > 0.4 });
+      }
+    }
+    x += w + Math.random() * 15;
+  }
+}
+
+initClouds();
+initBuildings();
+
+// Flying object types
+const OBJ_DRONE = 'drone';
+const OBJ_BIRD = 'bird';
+const OBJ_AIRPLANE = 'airplane';
+
+function spawnObject() {
+  // Weight: more drones than others, but still plenty of distractors
+  const r = Math.random();
+  let type;
+  if (r < 0.45) type = OBJ_DRONE;
+  else if (r < 0.75) type = OBJ_BIRD;
+  else type = OBJ_AIRPLANE;
+
+  const baseSpeed = 1.5 + difficulty * 0.4;
+  const speedVar = Math.random() * difficulty * 0.5;
+
+  // Size scaling: at higher difficulty, drones get smaller
+  const sizeScale = Math.max(0.55, 1 - difficulty * 0.04);
+
+  const obj = {
+    type,
+    x: W + 60,
+    y: 60 + Math.random() * (H - 200),
+    speed: baseSpeed + speedVar + (type === OBJ_AIRPLANE ? -0.5 : 0),
+    alive: true,
+    tapped: false,
+    rotorAngle: Math.random() * Math.PI * 2,
+    wingPhase: Math.random() * Math.PI * 2,
+    vy: (Math.random() - 0.5) * 1.2,
+    scale: type === OBJ_AIRPLANE ? 1.3 : (type === OBJ_DRONE ? sizeScale : 0.9 + Math.random() * 0.2),
+    opacity: 1
+  };
+
+  // Airplanes are bigger and steadier
+  if (type === OBJ_AIRPLANE) {
+    obj.vy *= 0.3;
+    obj.speed = baseSpeed * 0.7 + speedVar * 0.3;
+  }
+
+  flyingObjects.push(obj);
+}
+
+// Hit detection
+function hitTest(obj, mx, my) {
+  let hitR;
+  if (obj.type === OBJ_DRONE) hitR = 28 * obj.scale;
+  else if (obj.type === OBJ_BIRD) hitR = 22 * obj.scale;
+  else hitR = 45 * obj.scale;
+
+  const dx = mx - obj.x;
+  const dy = my - obj.y;
+  return dx * dx + dy * dy < hitR * hitR;
+}
+
+// Handle tap/click
+function handleTap(mx, my) {
+  if (state === STATE.MENU) {
+    startGame();
+    return;
+  }
+  if (state === STATE.GAMEOVER) {
+    state = STATE.MENU;
+    return;
+  }
+  if (state !== STATE.PLAYING) return;
+
+  // Check objects from front (last drawn) to back
+  let hitSomething = false;
+  for (let i = flyingObjects.length - 1; i >= 0; i--) {
+    const obj = flyingObjects[i];
+    if (!obj.alive || obj.tapped) continue;
+    if (hitTest(obj, mx, my)) {
+      hitSomething = true;
+      obj.tapped = true;
+
+      if (obj.type === OBJ_DRONE) {
+        // Correct! Destroy drone
+        obj.alive = false;
+        combo++;
+        comboTimer = 90;
+        comboMultiplier = Math.min(combo, 5);
+        const points = 10 * comboMultiplier;
+        score += points;
+
+        // Explosion particles
+        for (let j = 0; j < 18; j++) {
+          const angle = (j / 18) * Math.PI * 2;
+          const spd = 2 + Math.random() * 5;
+          particles.push({
+            x: obj.x, y: obj.y,
+            vx: Math.cos(angle) * spd, vy: Math.sin(angle) * spd,
+            r: 2 + Math.random() * 4, life: 1, decay: 0.015 + Math.random() * 0.02,
+            color: ['#ff6622', '#ffaa33', '#ffdd44', '#ff4411', '#88ccff'][Math.floor(Math.random() * 5)]
+          });
+        }
+        // Smoke
+        for (let j = 0; j < 6; j++) {
+          particles.push({
+            x: obj.x + (Math.random() - 0.5) * 20,
+            y: obj.y + (Math.random() - 0.5) * 20,
+            vx: (Math.random() - 0.5) * 1.5, vy: -1 - Math.random() * 2,
+            r: 5 + Math.random() * 8, life: 0.8, decay: 0.01,
+            color: 'rgba(100,100,100,0.6)'
+          });
+        }
+
+        // Flash text
+        const txt = comboMultiplier > 1 ? `!${'\u05DB\u05D8\u05D1"\u05DD'} x${comboMultiplier}` : '!\u05DB\u05D8\u05D1"\u05DD';
+        addFlash(txt, obj.x, obj.y - 30, '#44ffaa', 32 + comboMultiplier * 4);
+        if (points > 10) addFlash(`+${points}`, obj.x, obj.y + 20, '#ffdd44', 22);
+        else addFlash('+10', obj.x, obj.y + 20, '#ffdd44', 20);
+
+        screenFlash = 0.15;
+        screenFlashColor = 'rgba(100,255,150,';
+
+      } else {
+        // Wrong! Bird or airplane
+        combo = 0;
+        comboMultiplier = 1;
+        comboTimer = 0;
+        lives--;
+
+        screenFlash = 0.5;
+        screenFlashColor = 'rgba(255,0,0,';
+        screenShake = 12;
+
+        // Red particles
+        for (let j = 0; j < 8; j++) {
+          particles.push({
+            x: obj.x, y: obj.y,
+            vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4,
+            r: 3 + Math.random() * 3, life: 1, decay: 0.03,
+            color: '#ff2222'
+          });
+        }
+
+        addFlash('!\u05DC\u05D0 \u05DB\u05D8\u05D1"\u05DD', obj.x, obj.y - 30, '#ff4444', 36);
+
+        if (lives <= 0) {
+          gameOver();
+        }
+      }
+      break; // Only hit one object per tap
+    }
+  }
+}
 
 // Input
-const keys = {};
-let touchX = null, touchY = null, touching = false;
-
-window.addEventListener('keydown', e => { keys[e.key] = true; keys[e.code] = true; });
-window.addEventListener('keyup', e => { keys[e.key] = false; keys[e.code] = false; });
+canvas.addEventListener('click', e => {
+  handleTap(e.clientX, e.clientY);
+});
 
 canvas.addEventListener('touchstart', e => {
   e.preventDefault();
-  touching = true;
-  touchX = e.touches[0].clientX;
-  touchY = e.touches[0].clientY;
-  if (state === STATE.MENU) startGame();
-  else if (state === STATE.GAMEOVER) state = STATE.MENU;
+  for (let i = 0; i < e.changedTouches.length; i++) {
+    handleTap(e.changedTouches[i].clientX, e.changedTouches[i].clientY);
+  }
 });
-canvas.addEventListener('touchmove', e => {
-  e.preventDefault();
-  touchX = e.touches[0].clientX;
-  touchY = e.touches[0].clientY;
-});
-canvas.addEventListener('touchend', e => {
-  e.preventDefault();
-  touching = false;
-});
-
-canvas.addEventListener('click', e => {
-  if (state === STATE.MENU) startGame();
-  else if (state === STATE.GAMEOVER) state = STATE.MENU;
-});
-
-// Parallax layers
-let clouds1 = [], clouds2 = [], clouds3 = [];
-let stars = [], obstacles = [], photoTargets = [], balloons = [];
-let buildings = [];
-let particles = [];
-
-function initClouds() {
-  clouds1 = []; clouds2 = []; clouds3 = [];
-  for (let i = 0; i < 8; i++) clouds1.push({ x: Math.random() * W * 2, y: Math.random() * H * 0.4, w: 100 + Math.random() * 120, h: 40 + Math.random() * 30, a: 0.15 + Math.random() * 0.1 });
-  for (let i = 0; i < 6; i++) clouds2.push({ x: Math.random() * W * 2, y: Math.random() * H * 0.5, w: 80 + Math.random() * 100, h: 30 + Math.random() * 25, a: 0.2 + Math.random() * 0.1 });
-  for (let i = 0; i < 4; i++) clouds3.push({ x: Math.random() * W * 2, y: Math.random() * H * 0.6, w: 150 + Math.random() * 150, h: 50 + Math.random() * 40, a: 0.25 + Math.random() * 0.15 });
-}
 
 function startGame() {
-  loadYouTubeMusic();
+  startMusic();
   state = STATE.PLAYING;
-  score = 0; lives = 3; distance = 0; starsCollected = 0; photosCollected = 0;
-  comboCount = 0; comboTimer = 0; speed = 2; gameTime = 0;
-  drone.x = W * 0.25; drone.y = H * 0.5;
-  drone.vx = 0; drone.vy = 0; drone.tilt = 0;
-  drone.invincible = 0; drone.trail = [];
-  stars = []; obstacles = []; photoTargets = []; balloons = [];
-  buildings = []; particles = []; flashTexts = [];
+  score = 0;
+  lives = 5;
+  combo = 0;
+  comboTimer = 0;
+  comboMultiplier = 1;
+  gameTime = 0;
+  difficulty = 1;
+  spawnTimer = 0;
+  spawnInterval = 90;
+  flyingObjects = [];
+  particles = [];
+  flashTexts = [];
+  screenFlash = 0;
+  screenShake = 0;
   initClouds();
-  // Try to play music
-  if (ytPlayer && ytPlayer.playVideo) {
-    ytPlayer.playVideo();
-    if (musicMuted) ytPlayer.mute();
+}
+
+function gameOver() {
+  state = STATE.GAMEOVER;
+  if (score > bestScore) {
+    bestScore = score;
+    localStorage.setItem('ktbm_tap_best', bestScore.toString());
   }
 }
 
-// Spawn functions
-function spawnStar() {
-  stars.push({ x: W + 30, y: 60 + Math.random() * (H - 180), r: 12, angle: Math.random() * Math.PI * 2, glow: 0 });
+function addFlash(text, x, y, color, size) {
+  flashTexts.push({ text, x, y, color: color || '#ffdd44', size: size || 30, life: 1 });
 }
 
-function spawnObstacle() {
-  const types = ['bird', 'storm', 'building', 'enemy'];
-  const type = types[Math.floor(Math.random() * types.length)];
-  if (type === 'bird') {
-    obstacles.push({ type: 'bird', x: W + 30, y: 40 + Math.random() * (H - 140), w: 35, h: 20, wingPhase: Math.random() * Math.PI * 2, vy: (Math.random() - 0.5) * 1.5 });
-  } else if (type === 'storm') {
-    obstacles.push({ type: 'storm', x: W + 80, y: Math.random() * H * 0.4, w: 100 + Math.random() * 60, h: 60 + Math.random() * 30, flash: 0, flashTimer: Math.random() * 120 });
-  } else if (type === 'building') {
-    const bh = 120 + Math.random() * 200;
-    obstacles.push({ type: 'building', x: W + 40, y: H - bh, w: 50 + Math.random() * 40, h: bh, windows: [] });
-    const o = obstacles[obstacles.length - 1];
-    for (let wy = o.y + 15; wy < H - 20; wy += 25) {
-      for (let wx = 8; wx < o.w - 8; wx += 18) {
-        o.windows.push({ rx: wx, ry: wy - o.y, lit: Math.random() > 0.4 });
-      }
-    }
-  } else if (type === 'enemy') {
-    obstacles.push({ type: 'enemy', x: W + 30, y: 60 + Math.random() * (H - 180), w: 30, h: 30, rotorAngle: 0, vy: (Math.random() - 0.5) * 2 });
-  }
-}
+// ===== DRAWING =====
 
-function spawnBalloon() {
-  const colors = ['#ff4466', '#44bbff', '#ffcc33', '#66ff88', '#ff88ff'];
-  balloons.push({ x: W + 20, y: 80 + Math.random() * (H - 200), r: 18, color: colors[Math.floor(Math.random() * colors.length)], vy: (Math.random() - 0.5) * 0.8, popping: 0 });
-}
-
-function spawnPhotoTarget() {
-  photoTargets.push({ x: W + 30, y: H - 50 + Math.random() * 20, r: 25, pulse: 0, captured: false });
-}
-
-// Draw functions
-function drawSkyGradient() {
+function drawSky() {
   const g = ctx.createLinearGradient(0, 0, 0, H);
-  g.addColorStop(0, '#1a1a3e');
-  g.addColorStop(0.3, '#2a3a6e');
-  g.addColorStop(0.6, '#4a6a9e');
-  g.addColorStop(1, '#1a2a4e');
+  g.addColorStop(0, '#1a3a6e');
+  g.addColorStop(0.3, '#3a6aae');
+  g.addColorStop(0.6, '#5a9ade');
+  g.addColorStop(0.85, '#8ac4f8');
+  g.addColorStop(1, '#4a7ab8');
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, W, H);
 }
 
-function drawGroundStrip() {
-  const gy = H - 35;
-  const g = ctx.createLinearGradient(0, gy, 0, H);
-  g.addColorStop(0, '#1a3a2a');
-  g.addColorStop(1, '#0a1a0a');
-  ctx.fillStyle = g;
-  ctx.fillRect(0, gy, W, 35);
-  // Grid lines for ground
-  ctx.strokeStyle = 'rgba(100,255,150,0.15)';
-  ctx.lineWidth = 1;
-  const offset = (distance * 3) % 40;
-  for (let x = -offset; x < W; x += 40) {
-    ctx.beginPath(); ctx.moveTo(x, gy); ctx.lineTo(x, H); ctx.stroke();
-  }
-  ctx.beginPath(); ctx.moveTo(0, gy + 15); ctx.lineTo(W, gy + 15); ctx.stroke();
-}
-
-function drawCloud(c, alpha) {
-  ctx.fillStyle = `rgba(200,220,255,${alpha || c.a})`;
+function drawCloud(c) {
+  ctx.fillStyle = `rgba(230,240,255,${c.a})`;
   ctx.beginPath();
   ctx.ellipse(c.x, c.y, c.w / 2, c.h / 2, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.ellipse(c.x - c.w * 0.25, c.y + 5, c.w * 0.3, c.h * 0.4, 0, 0, Math.PI * 2);
+  ctx.ellipse(c.x - c.w * 0.28, c.y + 4, c.w * 0.32, c.h * 0.45, 0, 0, Math.PI * 2);
   ctx.fill();
   ctx.beginPath();
-  ctx.ellipse(c.x + c.w * 0.25, c.y + 3, c.w * 0.28, c.h * 0.35, 0, 0, Math.PI * 2);
+  ctx.ellipse(c.x + c.w * 0.25, c.y + 3, c.w * 0.28, c.h * 0.38, 0, 0, Math.PI * 2);
   ctx.fill();
 }
 
-function drawDrone(x, y, tilt, rotorAngle, isEnemy) {
-  ctx.save();
-  ctx.translate(x, y);
-  ctx.rotate(tilt);
+function drawCitySilhouette() {
+  const groundY = H - 50;
+  // Dark ground
+  ctx.fillStyle = '#1a1a2e';
+  ctx.fillRect(0, groundY, W, 50);
 
-  const armLen = isEnemy ? 14 : 18;
-  const bodyR = isEnemy ? 6 : 8;
-
-  // Glow underneath
-  if (!isEnemy) {
-    const glow = ctx.createRadialGradient(0, 5, 0, 0, 5, 35);
-    glow.addColorStop(0, 'rgba(100,180,255,0.3)');
-    glow.addColorStop(1, 'rgba(100,180,255,0)');
-    ctx.fillStyle = glow;
-    ctx.fillRect(-35, -10, 70, 50);
+  // Buildings
+  for (const b of buildings) {
+    const by = groundY - b.h;
+    ctx.fillStyle = '#0d0d1a';
+    ctx.fillRect(b.x, by, b.w, b.h + 2);
+    // Windows
+    for (const win of b.windows) {
+      ctx.fillStyle = win.lit ? `rgba(255,230,150,${0.4 + Math.sin(gameTime * 0.01 + b.x) * 0.2})` : 'rgba(20,20,40,0.5)';
+      ctx.fillRect(b.x + win.rx, by + win.ry, 8, 10);
+    }
   }
 
-  // Arms
-  ctx.strokeStyle = isEnemy ? '#aa2222' : '#88bbee';
-  ctx.lineWidth = isEnemy ? 2 : 3;
-  ctx.shadowColor = isEnemy ? '#ff4444' : '#66aaff';
-  ctx.shadowBlur = 8;
+  // Ground line glow
+  ctx.strokeStyle = 'rgba(100,150,255,0.15)';
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(0, groundY);
+  ctx.lineTo(W, groundY);
+  ctx.stroke();
+}
+
+function drawDrone(obj) {
+  const { x, y, rotorAngle, scale, opacity } = obj;
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha = opacity;
+
+  const armLen = 18;
+  const bodyR = 8;
+
+  // Shadow below
+  ctx.fillStyle = 'rgba(0,0,0,0.1)';
+  ctx.beginPath();
+  ctx.ellipse(0, 25, 20, 5, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // X-shaped arms
+  ctx.strokeStyle = '#556677';
+  ctx.lineWidth = 3;
+  ctx.shadowColor = 'rgba(100,180,255,0.4)';
+  ctx.shadowBlur = 6;
   const angles = [-0.7, 0.7, Math.PI - 0.7, Math.PI + 0.7];
   for (const a of angles) {
     const ex = Math.cos(a) * armLen;
     const ey = Math.sin(a) * armLen * 0.5;
     ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(ex, ey); ctx.stroke();
-    // Rotor
+
+    // Rotor disc
     ctx.save();
     ctx.translate(ex, ey);
     ctx.rotate(rotorAngle);
-    ctx.strokeStyle = isEnemy ? 'rgba(255,100,100,0.7)' : 'rgba(150,200,255,0.7)';
+    ctx.strokeStyle = 'rgba(180,200,220,0.6)';
     ctx.lineWidth = 2;
-    const rLen = isEnemy ? 8 : 10;
+    const rLen = 10;
     ctx.beginPath(); ctx.moveTo(-rLen, 0); ctx.lineTo(rLen, 0); ctx.stroke();
-    ctx.rotate(Math.PI / 2);
+    ctx.rotate(Math.PI / 3);
     ctx.beginPath(); ctx.moveTo(-rLen, 0); ctx.lineTo(rLen, 0); ctx.stroke();
+    ctx.rotate(Math.PI / 3);
+    ctx.beginPath(); ctx.moveTo(-rLen, 0); ctx.lineTo(rLen, 0); ctx.stroke();
+    // Rotor blur circle
+    ctx.strokeStyle = 'rgba(180,200,220,0.15)';
+    ctx.lineWidth = 1;
+    ctx.beginPath(); ctx.arc(0, 0, rLen, 0, Math.PI * 2); ctx.stroke();
     ctx.restore();
   }
 
-  // Body
-  ctx.shadowBlur = 12;
-  ctx.fillStyle = isEnemy ? '#cc3333' : '#5599cc';
-  ctx.beginPath();
-  ctx.ellipse(0, 0, bodyR, bodyR * 0.6, 0, 0, Math.PI * 2);
-  ctx.fill();
-
-  // Camera lens
+  // Body - dark grey box shape
   ctx.shadowBlur = 0;
-  ctx.fillStyle = isEnemy ? '#ff6666' : '#224466';
+  ctx.fillStyle = '#3a3a4a';
   ctx.beginPath();
-  ctx.arc(0, 2, 3, 0, Math.PI * 2);
+  ctx.roundRect(-bodyR, -bodyR * 0.5, bodyR * 2, bodyR, 3);
+  ctx.fill();
+  ctx.strokeStyle = '#555566';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+
+  // Camera underneath
+  ctx.fillStyle = '#222233';
+  ctx.beginPath();
+  ctx.arc(0, 5, 4, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.fillStyle = '#4488aa';
+  ctx.beginPath();
+  ctx.arc(0, 5, 2, 0, Math.PI * 2);
   ctx.fill();
 
-  // LED lights
-  const ledColor = isEnemy ? '#ff4444' : '#44ffaa';
-  ctx.fillStyle = ledColor;
-  ctx.shadowColor = ledColor;
+  // LED lights (front red, back green)
+  ctx.fillStyle = '#ff3333';
+  ctx.shadowColor = '#ff3333';
   ctx.shadowBlur = 6;
-  ctx.beginPath(); ctx.arc(-4, -3, 1.5, 0, Math.PI * 2); ctx.fill();
-  ctx.beginPath(); ctx.arc(4, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-5, -4, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#33ff33';
+  ctx.shadowColor = '#33ff33';
+  ctx.beginPath(); ctx.arc(5, -4, 1.5, 0, Math.PI * 2); ctx.fill();
 
   ctx.shadowBlur = 0;
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
-function drawBird(ob) {
+function drawBird(obj) {
+  const { x, y, wingPhase, scale, opacity } = obj;
   ctx.save();
-  ctx.translate(ob.x, ob.y);
-  const wing = Math.sin(ob.wingPhase) * 12;
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha = opacity;
+
+  const wing = Math.sin(wingPhase) * 15;
+
+  // Body - brown/tan
   ctx.fillStyle = '#8B6914';
-  ctx.strokeStyle = '#6B4914';
-  ctx.lineWidth = 1.5;
-  // Body
   ctx.beginPath();
-  ctx.ellipse(0, 0, 14, 6, 0, 0, Math.PI * 2);
-  ctx.fill(); ctx.stroke();
-  // Wings
-  ctx.beginPath();
-  ctx.moveTo(-4, -2); ctx.lineTo(-12, -2 + wing); ctx.lineTo(-2, -1);
+  ctx.ellipse(0, 0, 16, 7, 0, 0, Math.PI * 2);
   ctx.fill();
+
+  // Wing top
+  ctx.fillStyle = '#a07820';
   ctx.beginPath();
-  ctx.moveTo(4, -2); ctx.lineTo(12, -2 + wing); ctx.lineTo(2, -1);
+  ctx.moveTo(-5, -3);
+  ctx.quadraticCurveTo(-2, -18 + wing, 10, -5 + wing * 0.3);
+  ctx.lineTo(0, -2);
   ctx.fill();
+
+  // Wing bottom (sometimes visible)
+  ctx.beginPath();
+  ctx.moveTo(-5, -3);
+  ctx.quadraticCurveTo(-8, -18 + wing, -15, -3 + wing * 0.5);
+  ctx.lineTo(-3, -1);
+  ctx.fill();
+
+  // Tail feathers
+  ctx.fillStyle = '#6B4914';
+  ctx.beginPath();
+  ctx.moveTo(14, -2);
+  ctx.lineTo(22, -5);
+  ctx.lineTo(22, 2);
+  ctx.lineTo(14, 1);
+  ctx.fill();
+
+  // Head
+  ctx.fillStyle = '#7a5510';
+  ctx.beginPath();
+  ctx.arc(-14, -2, 5, 0, Math.PI * 2);
+  ctx.fill();
+
   // Beak
   ctx.fillStyle = '#ffaa33';
   ctx.beginPath();
-  ctx.moveTo(-15, -1); ctx.lineTo(-19, 0); ctx.lineTo(-15, 1);
+  ctx.moveTo(-18, -3);
+  ctx.lineTo(-24, -1);
+  ctx.lineTo(-18, 0);
   ctx.fill();
+
   // Eye
   ctx.fillStyle = '#111';
-  ctx.beginPath(); ctx.arc(-10, -2, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.beginPath(); ctx.arc(-15, -3, 1.5, 0, Math.PI * 2); ctx.fill();
+  ctx.fillStyle = '#fff';
+  ctx.beginPath(); ctx.arc(-15.5, -3.5, 0.6, 0, Math.PI * 2); ctx.fill();
+
+  ctx.globalAlpha = 1;
   ctx.restore();
 }
 
-function drawStormCloud(ob) {
+function drawAirplane(obj) {
+  const { x, y, scale, opacity } = obj;
   ctx.save();
-  ctx.fillStyle = `rgba(60,60,80,0.85)`;
-  ctx.beginPath();
-  ctx.ellipse(ob.x, ob.y, ob.w / 2, ob.h / 2, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(ob.x - ob.w * 0.2, ob.y + 5, ob.w * 0.3, ob.h * 0.4, 0, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.beginPath();
-  ctx.ellipse(ob.x + ob.w * 0.2, ob.y + 3, ob.w * 0.25, ob.h * 0.35, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Lightning flash
-  if (ob.flash > 0) {
-    ctx.fillStyle = `rgba(255,255,200,${ob.flash * 0.5})`;
-    ctx.fillRect(ob.x - ob.w / 2 - 10, ob.y - ob.h / 2 - 10, ob.w + 20, ob.h + 20);
-    // Lightning bolt
-    ctx.strokeStyle = `rgba(255,255,100,${ob.flash})`;
-    ctx.lineWidth = 2;
-    ctx.beginPath();
-    ctx.moveTo(ob.x, ob.y + ob.h / 2);
-    ctx.lineTo(ob.x - 8, ob.y + ob.h / 2 + 20);
-    ctx.lineTo(ob.x + 3, ob.y + ob.h / 2 + 18);
-    ctx.lineTo(ob.x - 5, ob.y + ob.h / 2 + 40);
-    ctx.stroke();
-  }
-  ctx.restore();
-}
+  ctx.translate(x, y);
+  ctx.scale(scale, scale);
+  ctx.globalAlpha = opacity;
 
-function drawBuilding(ob) {
-  ctx.fillStyle = '#1a1a2e';
-  ctx.strokeStyle = 'rgba(100,150,255,0.3)';
-  ctx.lineWidth = 1;
-  ctx.fillRect(ob.x, ob.y, ob.w, ob.h);
-  ctx.strokeRect(ob.x, ob.y, ob.w, ob.h);
+  // Fuselage - white/light grey
+  ctx.fillStyle = '#e8e8f0';
+  ctx.beginPath();
+  ctx.ellipse(0, 0, 40, 8, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.strokeStyle = '#bbb';
+  ctx.lineWidth = 0.5;
+  ctx.stroke();
+
+  // Cockpit
+  ctx.fillStyle = '#88ccff';
+  ctx.beginPath();
+  ctx.ellipse(-36, -1, 6, 5, -0.2, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Wings
+  ctx.fillStyle = '#d0d0dd';
+  ctx.beginPath();
+  ctx.moveTo(-5, -5);
+  ctx.lineTo(5, -30);
+  ctx.lineTo(15, -28);
+  ctx.lineTo(8, -5);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(-5, 5);
+  ctx.lineTo(5, 30);
+  ctx.lineTo(15, 28);
+  ctx.lineTo(8, 5);
+  ctx.fill();
+
+  // Tail fin
+  ctx.fillStyle = '#c0c0d0';
+  ctx.beginPath();
+  ctx.moveTo(32, -3);
+  ctx.lineTo(40, -18);
+  ctx.lineTo(42, -16);
+  ctx.lineTo(38, -3);
+  ctx.fill();
+
+  // Tail horizontal
+  ctx.beginPath();
+  ctx.moveTo(30, 0);
+  ctx.lineTo(38, -10);
+  ctx.lineTo(42, -8);
+  ctx.lineTo(36, 0);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.moveTo(30, 0);
+  ctx.lineTo(38, 10);
+  ctx.lineTo(42, 8);
+  ctx.lineTo(36, 0);
+  ctx.fill();
+
   // Windows
-  for (const win of ob.windows) {
-    ctx.fillStyle = win.lit ? 'rgba(255,230,150,0.7)' : 'rgba(30,30,50,0.5)';
-    ctx.fillRect(ob.x + win.rx, ob.y + win.ry, 10, 12);
-  }
-  // Antenna
-  ctx.strokeStyle = 'rgba(150,150,200,0.5)';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(ob.x + ob.w / 2, ob.y); ctx.lineTo(ob.x + ob.w / 2, ob.y - 15); ctx.stroke();
-  // Blinking light
-  if (Math.sin(gameTime * 0.05) > 0) {
-    ctx.fillStyle = '#ff3333';
-    ctx.beginPath(); ctx.arc(ob.x + ob.w / 2, ob.y - 15, 2, 0, Math.PI * 2); ctx.fill();
-  }
-}
-
-function drawBalloon(b) {
-  if (b.popping > 0) {
-    // Pop particles
-    for (let i = 0; i < 6; i++) {
-      const a = (i / 6) * Math.PI * 2;
-      const d = b.popping * 15;
-      ctx.fillStyle = b.color;
-      ctx.globalAlpha = 1 - b.popping;
-      ctx.beginPath();
-      ctx.arc(b.x + Math.cos(a) * d, b.y + Math.sin(a) * d, 3, 0, Math.PI * 2);
-      ctx.fill();
-    }
-    ctx.globalAlpha = 1;
-    return;
-  }
-  ctx.save();
-  ctx.translate(b.x, b.y);
-  // String
-  ctx.strokeStyle = '#aaa';
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(0, b.r); ctx.lineTo(0, b.r + 20); ctx.stroke();
-  // Balloon
-  ctx.fillStyle = b.color;
-  ctx.shadowColor = b.color;
-  ctx.shadowBlur = 10;
-  ctx.beginPath();
-  ctx.ellipse(0, 0, b.r * 0.8, b.r, 0, 0, Math.PI * 2);
-  ctx.fill();
-  // Highlight
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  ctx.beginPath();
-  ctx.ellipse(-3, -4, b.r * 0.25, b.r * 0.35, -0.3, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.restore();
-}
-
-function drawPhotoTarget(pt) {
-  ctx.save();
-  ctx.translate(pt.x, pt.y);
-  const pulse = Math.sin(pt.pulse) * 0.3 + 1;
-  const r = pt.r * pulse;
-  // Glow
-  ctx.strokeStyle = pt.captured ? 'rgba(100,255,100,0.8)' : 'rgba(255,200,50,0.6)';
-  ctx.lineWidth = 2;
-  ctx.shadowColor = pt.captured ? '#66ff66' : '#ffcc33';
-  ctx.shadowBlur = 15;
-  ctx.beginPath(); ctx.arc(0, 0, r, 0, Math.PI * 2); ctx.stroke();
-  ctx.beginPath(); ctx.arc(0, 0, r * 0.6, 0, Math.PI * 2); ctx.stroke();
-  // Crosshair
-  ctx.lineWidth = 1;
-  ctx.beginPath(); ctx.moveTo(-r, 0); ctx.lineTo(r, 0); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(0, -r); ctx.lineTo(0, r); ctx.stroke();
-  // Label
-  ctx.shadowBlur = 0;
-  ctx.fillStyle = 'rgba(255,200,50,0.8)';
-  ctx.font = '10px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('PHOTO', 0, -r - 5);
-  ctx.restore();
-}
-
-function drawStar(s) {
-  ctx.save();
-  ctx.translate(s.x, s.y);
-  ctx.rotate(s.angle);
-  ctx.fillStyle = '#ffdd44';
-  ctx.shadowColor = '#ffdd44';
-  ctx.shadowBlur = 12 + Math.sin(s.glow) * 5;
-  ctx.beginPath();
-  for (let i = 0; i < 5; i++) {
-    const a = (i * 2 * Math.PI / 5) - Math.PI / 2;
-    const r1 = s.r;
-    const r2 = s.r * 0.4;
-    ctx.lineTo(Math.cos(a) * r1, Math.sin(a) * r1);
-    const a2 = a + Math.PI / 5;
-    ctx.lineTo(Math.cos(a2) * r2, Math.sin(a2) * r2);
-  }
-  ctx.closePath();
-  ctx.fill();
-  ctx.shadowBlur = 0;
-  ctx.restore();
-}
-
-function drawTrail() {
-  if (drone.trail.length < 2) return;
-  for (let i = 1; i < drone.trail.length; i++) {
-    const t = i / drone.trail.length;
-    ctx.strokeStyle = `rgba(100,180,255,${t * 0.4})`;
-    ctx.lineWidth = t * 3;
+  ctx.fillStyle = '#99bbdd';
+  for (let wx = -25; wx < 25; wx += 6) {
     ctx.beginPath();
-    ctx.moveTo(drone.trail[i - 1].x, drone.trail[i - 1].y);
-    ctx.lineTo(drone.trail[i].x, drone.trail[i].y);
-    ctx.stroke();
+    ctx.arc(wx, -3, 1.5, 0, Math.PI * 2);
+    ctx.fill();
   }
+
+  // Engine (under wings)
+  ctx.fillStyle = '#aaaabc';
+  ctx.beginPath();
+  ctx.ellipse(2, -18, 5, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+  ctx.beginPath();
+  ctx.ellipse(2, 18, 5, 3, 0, 0, Math.PI * 2);
+  ctx.fill();
+
+  // Red stripe
+  ctx.strokeStyle = '#cc3333';
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  ctx.moveTo(-30, 3);
+  ctx.lineTo(30, 3);
+  ctx.stroke();
+
+  ctx.globalAlpha = 1;
+  ctx.restore();
 }
 
 function drawParticles() {
   for (const p of particles) {
-    ctx.globalAlpha = p.life;
+    ctx.globalAlpha = Math.max(0, p.life);
     ctx.fillStyle = p.color;
     ctx.beginPath();
-    ctx.arc(p.x, p.y, p.r, 0, Math.PI * 2);
+    ctx.arc(p.x, p.y, p.r * p.life, 0, Math.PI * 2);
     ctx.fill();
   }
   ctx.globalAlpha = 1;
@@ -521,295 +655,308 @@ function drawFlashTexts() {
   for (const ft of flashTexts) {
     ctx.save();
     ctx.globalAlpha = ft.life;
+    const s = 1 + (1 - ft.life) * 0.3;
+    ctx.translate(ft.x, ft.y);
+    ctx.scale(s, s);
     ctx.font = `bold ${ft.size}px Arial, sans-serif`;
     ctx.textAlign = 'center';
+    ctx.strokeStyle = 'rgba(0,0,0,0.5)';
+    ctx.lineWidth = 3;
+    ctx.strokeText(ft.text, 0, 0);
     ctx.fillStyle = ft.color;
     ctx.shadowColor = ft.color;
     ctx.shadowBlur = 15;
-    ctx.fillText(ft.text, ft.x, ft.y);
+    ctx.fillText(ft.text, 0, 0);
     ctx.shadowBlur = 0;
     ctx.restore();
   }
 }
 
-function drawHUD() {
-  // Score
-  ctx.fillStyle = 'rgba(0,0,0,0.4)';
-  ctx.fillRect(W / 2 - 100, 8, 200, 36);
-  ctx.strokeStyle = 'rgba(100,180,255,0.5)';
-  ctx.lineWidth = 1;
-  ctx.strokeRect(W / 2 - 100, 8, 200, 36);
-  ctx.fillStyle = '#aaddff';
-  ctx.font = 'bold 20px monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText(`SCORE: ${score}`, W / 2, 32);
-
-  // Lives
-  for (let i = 0; i < lives; i++) {
+function drawHeart(x, y, size, filled) {
+  ctx.save();
+  ctx.translate(x, y);
+  ctx.beginPath();
+  ctx.moveTo(0, size * 0.3);
+  ctx.bezierCurveTo(0, 0, -size, -size * 0.2, -size, size * 0.3);
+  ctx.bezierCurveTo(-size, size * 0.8, 0, size * 1.2, 0, size * 1.5);
+  ctx.bezierCurveTo(0, size * 1.2, size, size * 0.8, size, size * 0.3);
+  ctx.bezierCurveTo(size, -size * 0.2, 0, 0, 0, size * 0.3);
+  ctx.closePath();
+  if (filled) {
     ctx.fillStyle = '#ff4466';
     ctx.shadowColor = '#ff4466';
     ctx.shadowBlur = 8;
-    ctx.beginPath();
-    const lx = W / 2 - 80 + i * 28;
-    const ly = 55;
-    ctx.moveTo(lx, ly + 3);
-    ctx.bezierCurveTo(lx, ly, lx - 7, ly - 3, lx - 7, ly + 3);
-    ctx.bezierCurveTo(lx - 7, ly + 8, lx, ly + 12, lx, ly + 15);
-    ctx.bezierCurveTo(lx, ly + 12, lx + 7, ly + 8, lx + 7, ly + 3);
-    ctx.bezierCurveTo(lx + 7, ly - 3, lx, ly, lx, ly + 3);
     ctx.fill();
+  } else {
+    ctx.strokeStyle = 'rgba(255,68,102,0.3)';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+  }
+  ctx.shadowBlur = 0;
+  ctx.restore();
+}
+
+function drawHUD() {
+  // Score (top-right)
+  ctx.fillStyle = 'rgba(0,0,0,0.4)';
+  ctx.fillRect(W - 160, 8, 150, 36);
+  ctx.strokeStyle = 'rgba(100,180,255,0.4)';
+  ctx.lineWidth = 1;
+  ctx.strokeRect(W - 160, 8, 150, 36);
+  ctx.fillStyle = '#aaddff';
+  ctx.font = 'bold 20px monospace';
+  ctx.textAlign = 'center';
+  ctx.fillText(`${score}`, W - 85, 32);
+
+  // Lives (top-left)
+  for (let i = 0; i < 5; i++) {
+    drawHeart(20 + i * 28, 12, 8, i < lives);
+  }
+
+  // Combo (center)
+  if (combo >= 2 && comboTimer > 0) {
+    const a = Math.min(1, comboTimer / 30);
+    ctx.globalAlpha = a;
+    ctx.fillStyle = '#ffdd44';
+    ctx.shadowColor = '#ffdd44';
+    ctx.shadowBlur = 15;
+    ctx.font = `bold ${28 + combo * 2}px monospace`;
+    ctx.textAlign = 'center';
+    ctx.fillText(`COMBO x${comboMultiplier}`, W / 2, 70);
+    ctx.shadowBlur = 0;
+    ctx.globalAlpha = 1;
+  }
+
+  // Best score (subtle)
+  if (bestScore > 0) {
+    ctx.fillStyle = 'rgba(150,200,255,0.4)';
+    ctx.font = '12px monospace';
+    ctx.textAlign = 'right';
+    ctx.fillText(`BEST: ${bestScore}`, W - 15, H - 60);
+  }
+}
+
+// ===== MENU =====
+
+function drawMenuScreen() {
+  // Darken
+  ctx.fillStyle = 'rgba(10,15,40,0.55)';
+  ctx.fillRect(0, 0, W, H);
+
+  // Neon border
+  ctx.strokeStyle = 'rgba(100,180,255,0.35)';
+  ctx.lineWidth = 2;
+  ctx.strokeRect(25, 25, W - 50, H - 50);
+
+  const cy = H * 0.28;
+  ctx.textAlign = 'center';
+
+  // Big Hebrew title with glow
+  const titleSize = Math.min(100, W * 0.14);
+  ctx.fillStyle = '#44ffaa';
+  ctx.shadowColor = '#44ffaa';
+  ctx.shadowBlur = 40;
+  ctx.font = `bold ${titleSize}px Arial, sans-serif`;
+  ctx.fillText('\u05DB\u05D8\u05D1"\u05DD', W / 2, cy);
+  ctx.shadowBlur = 20;
+  ctx.fillText('\u05DB\u05D8\u05D1"\u05DD', W / 2, cy);
+
+  // Subtitle Hebrew
+  ctx.shadowBlur = 10;
+  ctx.font = `bold ${Math.min(30, W * 0.04)}px Arial, sans-serif`;
+  ctx.fillStyle = '#88aacc';
+  ctx.fillText('?\u05DE\u05D4 \u05D6\u05D4 \u05D1\u05E9\u05DE\u05D9\u05D9\u05DD', W / 2, cy + 50);
+
+  // English subtitle
+  ctx.shadowBlur = 5;
+  ctx.font = `${Math.min(20, W * 0.028)}px monospace`;
+  ctx.fillStyle = '#6699bb';
+  ctx.fillText('Tap only the drones!', W / 2, cy + 85);
+
+  ctx.shadowBlur = 0;
+
+  // Animated objects on menu
+  const menuT = gameTime * 0.015;
+
+  // Draw a sample drone flying
+  const mdx = W * 0.3 + Math.sin(menuT * 1.3) * W * 0.15;
+  const mdy = cy + 140 + Math.sin(menuT * 2) * 15;
+  drawDrone({ x: mdx, y: mdy, rotorAngle: gameTime * 0.4, scale: 1, opacity: 1 });
+  ctx.fillStyle = 'rgba(68,255,170,0.6)';
+  ctx.font = '12px Arial';
+  ctx.textAlign = 'center';
+  ctx.fillText('\u05DB\u05D8\u05D1"\u05DD', mdx, mdy + 30);
+
+  // Draw a sample bird
+  const mbx = W * 0.55 + Math.sin(menuT * 1.1 + 2) * W * 0.1;
+  const mby = cy + 130 + Math.sin(menuT * 1.8 + 1) * 12;
+  drawBird({ x: mbx, y: mby, wingPhase: gameTime * 0.15, scale: 1, opacity: 1 });
+  ctx.fillStyle = 'rgba(255,80,80,0.6)';
+  ctx.font = '12px Arial';
+  ctx.fillText('\u05E6\u05D9\u05E4\u05D5\u05E8', mbx, mby + 25);
+
+  // Draw a sample airplane
+  const max = W * 0.75 + Math.sin(menuT * 0.8 + 4) * W * 0.08;
+  const may = cy + 145 + Math.sin(menuT * 1.5 + 3) * 10;
+  drawAirplane({ x: max, y: may, scale: 0.8, opacity: 1 });
+  ctx.fillStyle = 'rgba(255,80,80,0.6)';
+  ctx.font = '12px Arial';
+  ctx.fillText('\u05DE\u05D8\u05D5\u05E1', max, may + 35);
+
+  // Checkmark / X indicators
+  ctx.font = 'bold 18px Arial';
+  ctx.fillStyle = '#44ff88';
+  ctx.fillText('V', mdx, mdy - 28);
+  ctx.fillStyle = '#ff4444';
+  ctx.fillText('X', mbx, mby - 22);
+  ctx.fillText('X', max, may - 32);
+
+  // Play button
+  const btnY = cy + 240;
+  const pulse = Math.sin(gameTime * 0.06) * 0.2 + 0.8;
+  ctx.fillStyle = `rgba(68,255,170,${pulse * 0.25})`;
+  ctx.strokeStyle = `rgba(68,255,170,${pulse})`;
+  ctx.lineWidth = 2;
+  const btnW = 200, btnH = 55;
+  ctx.beginPath();
+  ctx.roundRect(W / 2 - btnW / 2, btnY - btnH / 2, btnW, btnH, 28);
+  ctx.fill();
+  ctx.stroke();
+
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${Math.min(26, W * 0.04)}px monospace`;
+  ctx.fillText('PLAY', W / 2, btnY + 9);
+
+  // Instructions
+  ctx.fillStyle = 'rgba(150,180,220,0.5)';
+  ctx.font = `${Math.min(14, W * 0.02)}px monospace`;
+  ctx.fillText('Tap/Click drones to destroy them', W / 2, H - 80);
+  ctx.fillText('Don\'t tap birds or airplanes!', W / 2, H - 58);
+
+  // Best score
+  if (bestScore > 0) {
+    ctx.fillStyle = 'rgba(255,220,100,0.6)';
+    ctx.fillText(`Best: ${bestScore}`, W / 2, H - 100);
+  }
+}
+
+function drawGameOverScreen() {
+  ctx.fillStyle = 'rgba(10,10,30,0.75)';
+  ctx.fillRect(0, 0, W, H);
+
+  const cy = H * 0.28;
+  ctx.textAlign = 'center';
+
+  ctx.fillStyle = '#ff5555';
+  ctx.shadowColor = '#ff4444';
+  ctx.shadowBlur = 25;
+  ctx.font = `bold ${Math.min(64, W * 0.09)}px Arial, sans-serif`;
+  ctx.fillText('GAME OVER', W / 2, cy);
+  ctx.shadowBlur = 0;
+
+  ctx.fillStyle = '#aaddff';
+  ctx.font = `bold ${Math.min(36, W * 0.05)}px monospace`;
+  ctx.fillText(`${score}`, W / 2, cy + 55);
+
+  ctx.fillStyle = 'rgba(150,200,255,0.6)';
+  ctx.font = `${Math.min(18, W * 0.025)}px monospace`;
+  ctx.fillText(`BEST: ${bestScore}`, W / 2, cy + 90);
+
+  if (score >= bestScore && score > 0) {
+    ctx.fillStyle = '#ffdd44';
+    ctx.shadowColor = '#ffdd44';
+    ctx.shadowBlur = 15;
+    ctx.font = `bold ${Math.min(22, W * 0.03)}px monospace`;
+    ctx.fillText('NEW BEST!', W / 2, cy + 120);
     ctx.shadowBlur = 0;
   }
 
-  // Distance
-  ctx.fillStyle = 'rgba(150,200,255,0.6)';
-  ctx.font = '12px monospace';
-  ctx.textAlign = 'left';
-  ctx.fillText(`DIST: ${Math.floor(distance)}m`, 15, H - 15);
+  // Play again button
+  const btnY = cy + 180;
+  const pulse = Math.sin(gameTime * 0.06) * 0.2 + 0.8;
+  ctx.fillStyle = `rgba(68,255,170,${pulse * 0.25})`;
+  ctx.strokeStyle = `rgba(68,255,170,${pulse})`;
+  ctx.lineWidth = 2;
+  const btnW = 220, btnH = 55;
+  ctx.beginPath();
+  ctx.roundRect(W / 2 - btnW / 2, btnY - btnH / 2, btnW, btnH, 28);
+  ctx.fill();
+  ctx.stroke();
 
-  // Best score
-  ctx.textAlign = 'right';
-  ctx.fillText(`BEST: ${bestScore}`, W - 15, H - 15);
+  ctx.fillStyle = '#ffffff';
+  ctx.font = `bold ${Math.min(22, W * 0.03)}px monospace`;
+  ctx.fillText('PLAY AGAIN', W / 2, btnY + 8);
 }
 
-// Collision
-function circleRect(cx, cy, cr, rx, ry, rw, rh) {
-  const nx = Math.max(rx, Math.min(cx, rx + rw));
-  const ny = Math.max(ry, Math.min(cy, ry + rh));
-  const dx = cx - nx, dy = cy - ny;
-  return dx * dx + dy * dy < cr * cr;
-}
+// ===== UPDATE =====
 
-function circleDist(x1, y1, r1, x2, y2, r2) {
-  const dx = x1 - x2, dy = y1 - y2;
-  return Math.sqrt(dx * dx + dy * dy) < r1 + r2;
-}
-
-function hitDrone(ox, oy, ow, oh) {
-  if (drone.invincible > 0) return false;
-  return circleRect(drone.x, drone.y, 16, ox - ow / 2, oy - oh / 2, ow, oh);
-}
-
-function hitDroneCircle(ox, oy, or) {
-  if (drone.invincible > 0) return false;
-  return circleDist(drone.x, drone.y, 16, ox, oy, or);
-}
-
-function takeDamage() {
-  lives--;
-  drone.invincible = 90;
-  // Damage particles
-  for (let i = 0; i < 12; i++) {
-    particles.push({
-      x: drone.x, y: drone.y,
-      vx: (Math.random() - 0.5) * 6, vy: (Math.random() - 0.5) * 6,
-      r: 2 + Math.random() * 3, life: 1, decay: 0.02,
-      color: '#ff6644'
-    });
-  }
-  comboCount = 0;
-  if (lives <= 0) {
-    gameOver();
-  }
-}
-
-function gameOver() {
-  state = STATE.GAMEOVER;
-  if (score > bestScore) {
-    bestScore = score;
-    localStorage.setItem('ktbm_best', bestScore.toString());
-  }
-}
-
-function addFlash(text, x, y, color, size) {
-  flashTexts.push({ text, x, y, color: color || '#ffdd44', size: size || 40, life: 1 });
-}
-
-// Spawn timers
-let starTimer = 0, obstacleTimer = 0, balloonTimer = 0, photoTimer = 0;
-
-// Update
 function update() {
   gameTime++;
 
+  // Clouds always move
+  for (const c of clouds) {
+    c.x -= c.speed;
+    if (c.x < -c.w) { c.x = W + c.w + Math.random() * 100; c.y = 30 + Math.random() * (H * 0.5); }
+  }
+
   if (state !== STATE.PLAYING) return;
 
-  // Speed ramp
-  speed = 2 + gameTime * 0.0005;
-  if (speed > 7) speed = 7;
-
-  distance += speed * 0.3;
-
-  // Drone movement
-  let ax = 0, ay = 0;
-  const accel = 0.5;
-  if (keys['ArrowLeft'] || keys['a'] || keys['A'] || keys['KeyA']) ax -= accel;
-  if (keys['ArrowRight'] || keys['d'] || keys['D'] || keys['KeyD']) ax += accel;
-  if (keys['ArrowUp'] || keys['w'] || keys['W'] || keys['KeyW']) ay -= accel;
-  if (keys['ArrowDown'] || keys['s'] || keys['S'] || keys['KeyS']) ay += accel;
-
-  if (touching && touchX !== null) {
-    const dx = touchX - drone.x;
-    const dy = touchY - drone.y;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    if (dist > 10) {
-      ax += (dx / dist) * accel * 1.2;
-      ay += (dy / dist) * accel * 1.2;
-    }
-  }
-
-  drone.vx += ax;
-  drone.vy += ay;
-  drone.vx *= 0.92;
-  drone.vy *= 0.92;
-  drone.x += drone.vx;
-  drone.y += drone.vy;
-
-  // Boundaries
-  if (drone.x < 25) { drone.x = 25; drone.vx = 0; }
-  if (drone.x > W - 25) { drone.x = W - 25; drone.vx = 0; }
-  if (drone.y < 25) { drone.y = 25; drone.vy = 0; }
-  if (drone.y > H - 60) { drone.y = H - 60; drone.vy = 0; }
-
-  // Tilt
-  drone.tilt += (drone.vx * 0.04 - drone.tilt) * 0.15;
-
-  // Rotor
-  drone.rotorAngle += 0.4;
-
-  // Trail
-  drone.trail.push({ x: drone.x, y: drone.y });
-  if (drone.trail.length > 20) drone.trail.shift();
-
-  // Invincibility
-  if (drone.invincible > 0) drone.invincible--;
-
-  // Combo timer
-  if (comboTimer > 0) {
-    comboTimer--;
-    if (comboTimer <= 0) comboCount = 0;
-  }
-
-  // Move clouds
-  for (const c of clouds1) { c.x -= speed * 0.3; if (c.x < -c.w) { c.x = W + c.w; c.y = Math.random() * H * 0.4; } }
-  for (const c of clouds2) { c.x -= speed * 0.5; if (c.x < -c.w) { c.x = W + c.w; c.y = Math.random() * H * 0.5; } }
-  for (const c of clouds3) { c.x -= speed * 0.8; if (c.x < -c.w) { c.x = W + c.w; c.y = Math.random() * H * 0.6; } }
+  // Difficulty ramp based on score
+  difficulty = 1 + score / 80;
+  spawnInterval = Math.max(20, 90 - difficulty * 4);
 
   // Spawn
-  starTimer++;
-  if (starTimer > 45 - speed * 3) { spawnStar(); starTimer = 0; }
-  obstacleTimer++;
-  if (obstacleTimer > 80 - speed * 5) { spawnObstacle(); obstacleTimer = 0; }
-  balloonTimer++;
-  if (balloonTimer > 180) { spawnBalloon(); balloonTimer = 0; }
-  photoTimer++;
-  if (photoTimer > 200) { spawnPhotoTarget(); photoTimer = 0; }
-
-  // Update stars
-  for (let i = stars.length - 1; i >= 0; i--) {
-    const s = stars[i];
-    s.x -= speed * 1.5;
-    s.angle += 0.03;
-    s.glow += 0.1;
-    if (s.x < -30) { stars.splice(i, 1); continue; }
-    if (circleDist(drone.x, drone.y, 16, s.x, s.y, s.r)) {
-      starsCollected++;
-      score += 10;
-      comboCount++;
-      comboTimer = 120;
-      if (comboCount >= 3) {
-        const bonus = comboCount * 5;
-        score += bonus;
-        addFlash('!' + 'כטב"ם', drone.x, drone.y - 40, '#ffdd44', 36);
-      }
-      for (let j = 0; j < 6; j++) {
-        particles.push({
-          x: s.x, y: s.y,
-          vx: (Math.random() - 0.5) * 4, vy: (Math.random() - 0.5) * 4,
-          r: 2 + Math.random() * 2, life: 1, decay: 0.03, color: '#ffdd44'
-        });
-      }
-      stars.splice(i, 1);
-    }
+  spawnTimer++;
+  if (spawnTimer >= spawnInterval) {
+    spawnObject();
+    spawnTimer = 0;
+    // Sometimes spawn extras at higher difficulty
+    if (difficulty > 3 && Math.random() < 0.3) spawnObject();
+    if (difficulty > 6 && Math.random() < 0.2) spawnObject();
   }
 
-  // Update obstacles
-  for (let i = obstacles.length - 1; i >= 0; i--) {
-    const ob = obstacles[i];
-    ob.x -= speed * 1.5;
-
-    if (ob.type === 'bird') {
-      ob.wingPhase += 0.15;
-      ob.y += ob.vy;
-      if (ob.y < 30 || ob.y > H - 60) ob.vy *= -1;
-      if (ob.x < -50) { obstacles.splice(i, 1); continue; }
-      if (hitDrone(ob.x, ob.y, ob.w, ob.h)) { takeDamage(); obstacles.splice(i, 1); continue; }
-    } else if (ob.type === 'storm') {
-      ob.flashTimer--;
-      if (ob.flashTimer <= 0) { ob.flash = 1; ob.flashTimer = 60 + Math.random() * 120; }
-      if (ob.flash > 0) ob.flash -= 0.05;
-      if (ob.x < -ob.w) { obstacles.splice(i, 1); continue; }
-      if (hitDrone(ob.x, ob.y, ob.w, ob.h)) { takeDamage(); obstacles.splice(i, 1); continue; }
-    } else if (ob.type === 'building') {
-      if (ob.x + ob.w < -10) { obstacles.splice(i, 1); continue; }
-      if (circleRect(drone.x, drone.y, 14, ob.x, ob.y, ob.w, ob.h) && drone.invincible <= 0) {
-        takeDamage();
-      }
-    } else if (ob.type === 'enemy') {
-      ob.rotorAngle += 0.35;
-      ob.y += ob.vy;
-      if (ob.y < 30 || ob.y > H - 60) ob.vy *= -1;
-      if (ob.x < -50) { obstacles.splice(i, 1); continue; }
-      if (hitDroneCircle(ob.x, ob.y, 15)) { takeDamage(); obstacles.splice(i, 1); continue; }
-    }
+  // Combo decay
+  if (comboTimer > 0) {
+    comboTimer--;
+    if (comboTimer <= 0) { combo = 0; comboMultiplier = 1; }
   }
 
-  // Update balloons
-  for (let i = balloons.length - 1; i >= 0; i--) {
-    const b = balloons[i];
-    if (b.popping > 0) {
-      b.popping += 0.04;
-      if (b.popping >= 1) { balloons.splice(i, 1); }
-      continue;
-    }
-    b.x -= speed * 1.2;
-    b.y += b.vy + Math.sin(gameTime * 0.03 + i) * 0.3;
-    if (b.x < -30) { balloons.splice(i, 1); continue; }
-    if (circleDist(drone.x, drone.y, 16, b.x, b.y, b.r)) {
-      b.popping = 0.01;
-      score += 25;
-      addFlash('+25', b.x, b.y - 20, b.color, 24);
-    }
-  }
+  // Update flying objects
+  for (let i = flyingObjects.length - 1; i >= 0; i--) {
+    const obj = flyingObjects[i];
+    if (!obj.alive) { flyingObjects.splice(i, 1); continue; }
 
-  // Update photo targets
-  for (let i = photoTargets.length - 1; i >= 0; i--) {
-    const pt = photoTargets[i];
-    pt.x -= speed * 1.5;
-    pt.pulse += 0.08;
-    if (pt.x < -40) { photoTargets.splice(i, 1); continue; }
-    if (!pt.captured && Math.abs(drone.x - pt.x) < 40 && drone.y > H - 120) {
-      pt.captured = true;
-      photosCollected++;
-      score += 50;
-      addFlash('PHOTO +50', pt.x, pt.y - 40, '#66ff66', 28);
-      comboCount++;
-      comboTimer = 120;
-      if (comboCount >= 3) {
-        score += comboCount * 5;
-        addFlash('!' + 'כטב"ם', drone.x, drone.y - 60, '#ffdd44', 36);
-      }
+    obj.x -= obj.speed;
+    obj.y += obj.vy;
+
+    // Slight wave motion
+    if (obj.type === OBJ_BIRD) {
+      obj.y += Math.sin(gameTime * 0.05 + i * 3) * 0.5;
+      obj.wingPhase += 0.15;
     }
-    if (pt.captured) {
-      pt.pulse += 0.1;
-      if (pt.pulse > 20) photoTargets.splice(i, 1);
+    if (obj.type === OBJ_DRONE) {
+      obj.rotorAngle += 0.4;
+      obj.y += Math.sin(gameTime * 0.03 + i * 2) * 0.3;
+    }
+
+    // Bounce off top/bottom
+    if (obj.y < 40 || obj.y > H - 90) obj.vy *= -1;
+    if (obj.y < 40) obj.y = 40;
+    if (obj.y > H - 90) obj.y = H - 90;
+
+    // Remove if off screen left
+    if (obj.x < -80) {
+      flyingObjects.splice(i, 1);
+      // No penalty for missing drones
     }
   }
 
   // Update particles
   for (let i = particles.length - 1; i >= 0; i--) {
     const p = particles[i];
-    p.x += p.vx; p.y += p.vy;
+    p.x += p.vx;
+    p.y += p.vy;
+    p.vy += 0.05; // slight gravity
     p.life -= p.decay;
     if (p.life <= 0) particles.splice(i, 1);
   }
@@ -817,202 +964,73 @@ function update() {
   // Update flash texts
   for (let i = flashTexts.length - 1; i >= 0; i--) {
     const ft = flashTexts[i];
-    ft.y -= 1;
-    ft.life -= 0.02;
+    ft.y -= 1.2;
+    ft.life -= 0.018;
     if (ft.life <= 0) flashTexts.splice(i, 1);
   }
 
-  // Score from distance
-  score += Math.floor(speed * 0.1);
+  // Screen effects decay
+  if (screenFlash > 0) screenFlash -= 0.03;
+  if (screenShake > 0) screenShake -= 0.8;
 }
 
-// Draw
-function draw() {
-  drawSkyGradient();
+// ===== MAIN DRAW =====
 
-  // Background stars (sky dots)
-  ctx.fillStyle = 'rgba(255,255,255,0.3)';
-  for (let i = 0; i < 40; i++) {
-    const sx = ((i * 137 + gameTime * 0.1) % (W + 20)) - 10;
-    const sy = (i * 73) % (H * 0.5);
-    ctx.beginPath(); ctx.arc(sx, sy, 0.8, 0, Math.PI * 2); ctx.fill();
+function draw() {
+  ctx.save();
+
+  // Screen shake
+  if (screenShake > 0) {
+    const sx = (Math.random() - 0.5) * screenShake;
+    const sy = (Math.random() - 0.5) * screenShake;
+    ctx.translate(sx, sy);
   }
 
-  // Cloud layers
-  for (const c of clouds1) drawCloud(c);
-  for (const c of clouds2) drawCloud(c);
+  drawSky();
+
+  // Clouds (back layer)
+  for (let i = 0; i < clouds.length; i++) {
+    if (i < 7) drawCloud(clouds[i]);
+  }
 
   if (state === STATE.MENU) {
+    drawCitySilhouette();
+    // Front clouds
+    for (let i = 7; i < clouds.length; i++) drawCloud(clouds[i]);
     drawMenuScreen();
+    ctx.restore();
     return;
   }
 
-  // Ground
-  drawGroundStrip();
+  // Draw flying objects sorted by type for layering (airplanes back, drones middle, birds front)
+  const airplanes = flyingObjects.filter(o => o.type === OBJ_AIRPLANE);
+  const drones = flyingObjects.filter(o => o.type === OBJ_DRONE);
+  const birds = flyingObjects.filter(o => o.type === OBJ_BIRD);
 
-  // Photo targets
-  for (const pt of photoTargets) drawPhotoTarget(pt);
+  for (const obj of airplanes) drawAirplane(obj);
 
-  // Cloud layer 3 (foreground clouds)
-  for (const c of clouds3) drawCloud(c);
+  // Front clouds
+  for (let i = 7; i < clouds.length; i++) drawCloud(clouds[i]);
 
-  // Buildings
-  for (const ob of obstacles) {
-    if (ob.type === 'building') drawBuilding(ob);
-  }
+  for (const obj of drones) drawDrone(obj);
+  for (const obj of birds) drawBird(obj);
 
-  // Balloons
-  for (const b of balloons) drawBalloon(b);
-
-  // Stars
-  for (const s of stars) drawStar(s);
-
-  // Obstacles
-  for (const ob of obstacles) {
-    if (ob.type === 'bird') drawBird(ob);
-    else if (ob.type === 'storm') drawStormCloud(ob);
-    else if (ob.type === 'enemy') drawDrone(ob.x, ob.y, 0, ob.rotorAngle, true);
-  }
-
-  // Drone
-  drawTrail();
-  if (drone.invincible <= 0 || Math.floor(drone.invincible / 4) % 2 === 0) {
-    drawDrone(drone.x, drone.y, drone.tilt, drone.rotorAngle, false);
-  }
-
-  // Particles & text
+  drawCitySilhouette();
   drawParticles();
   drawFlashTexts();
-
-  // HUD
   drawHUD();
 
-  // Combo indicator
-  if (comboCount >= 2 && comboTimer > 0) {
-    ctx.fillStyle = `rgba(255,220,70,${comboTimer / 120})`;
-    ctx.font = 'bold 16px monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText(`COMBO x${comboCount}`, W / 2, 78);
+  // Screen flash overlay
+  if (screenFlash > 0) {
+    ctx.fillStyle = screenFlashColor + Math.min(0.4, screenFlash) + ')';
+    ctx.fillRect(-20, -20, W + 40, H + 40);
   }
 
   if (state === STATE.GAMEOVER) {
     drawGameOverScreen();
   }
-}
 
-function drawMenuScreen() {
-  // Darken
-  ctx.fillStyle = 'rgba(10,10,30,0.5)';
-  ctx.fillRect(0, 0, W, H);
-
-  // Neon border frame
-  ctx.strokeStyle = 'rgba(100,180,255,0.4)';
-  ctx.lineWidth = 2;
-  ctx.strokeRect(30, 30, W - 60, H - 60);
-
-  // Title
-  const cy = H * 0.35;
-  ctx.textAlign = 'center';
-
-  // Big Hebrew title
-  ctx.fillStyle = '#66ccff';
-  ctx.shadowColor = '#66ccff';
-  ctx.shadowBlur = 30;
-  ctx.font = `bold ${Math.min(90, W * 0.12)}px Arial, sans-serif`;
-  ctx.fillText('כטב"ם', W / 2, cy);
-
-  // English subtitle
-  ctx.shadowBlur = 15;
-  ctx.font = `bold ${Math.min(36, W * 0.05)}px monospace`;
-  ctx.fillStyle = '#aaddff';
-  ctx.fillText('DRONE', W / 2, cy + 50);
-
-  // Tagline
-  ctx.shadowBlur = 8;
-  ctx.font = `${Math.min(22, W * 0.03)}px Arial, sans-serif`;
-  ctx.fillStyle = '#88aacc';
-  ctx.fillText('?מה זה בשמיים', W / 2, cy + 90);
-
-  ctx.shadowBlur = 0;
-
-  // Animated drone on menu
-  const menuDroneX = W / 2 + Math.sin(gameTime * 0.02) * 60;
-  const menuDroneY = cy + 140 + Math.sin(gameTime * 0.03) * 10;
-  drone.rotorAngle += 0.4;
-  drawDrone(menuDroneX, menuDroneY, Math.sin(gameTime * 0.02) * 0.15, drone.rotorAngle, false);
-
-  // Play button
-  const btnY = cy + 200;
-  const pulse = Math.sin(gameTime * 0.05) * 0.2 + 0.8;
-  ctx.fillStyle = `rgba(100,180,255,${pulse * 0.3})`;
-  ctx.strokeStyle = `rgba(100,180,255,${pulse})`;
-  ctx.lineWidth = 2;
-  const btnW = 180, btnH = 50;
-  ctx.beginPath();
-  ctx.roundRect(W / 2 - btnW / 2, btnY - btnH / 2, btnW, btnH, 25);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${Math.min(24, W * 0.035)}px monospace`;
-  ctx.fillText('PLAY', W / 2, btnY + 8);
-
-  // Controls info
-  ctx.fillStyle = 'rgba(150,180,220,0.5)';
-  ctx.font = `${Math.min(14, W * 0.02)}px monospace`;
-  ctx.fillText('WASD / Arrows / Touch to fly', W / 2, H - 60);
-
-  // Best score
-  if (bestScore > 0) {
-    ctx.fillStyle = 'rgba(255,220,100,0.6)';
-    ctx.fillText(`Best Score: ${bestScore}`, W / 2, H - 85);
-  }
-}
-
-function drawGameOverScreen() {
-  ctx.fillStyle = 'rgba(10,10,30,0.7)';
-  ctx.fillRect(0, 0, W, H);
-
-  const cy = H * 0.3;
-  ctx.textAlign = 'center';
-
-  ctx.fillStyle = '#ff6666';
-  ctx.shadowColor = '#ff4444';
-  ctx.shadowBlur = 20;
-  ctx.font = `bold ${Math.min(60, W * 0.08)}px Arial, sans-serif`;
-  ctx.fillText('GAME OVER', W / 2, cy);
-  ctx.shadowBlur = 0;
-
-  ctx.fillStyle = '#aaddff';
-  ctx.font = `bold ${Math.min(28, W * 0.04)}px monospace`;
-  ctx.fillText(`SCORE: ${score}`, W / 2, cy + 60);
-
-  if (score >= bestScore) {
-    ctx.fillStyle = '#ffdd44';
-    ctx.font = `${Math.min(18, W * 0.025)}px monospace`;
-    ctx.fillText('NEW BEST!', W / 2, cy + 90);
-  }
-
-  ctx.fillStyle = 'rgba(150,200,255,0.7)';
-  ctx.font = `${Math.min(16, W * 0.022)}px monospace`;
-  ctx.fillText(`Distance: ${Math.floor(distance)}m`, W / 2, cy + 125);
-  ctx.fillText(`Stars: ${starsCollected}`, W / 2, cy + 150);
-  ctx.fillText(`Photos: ${photosCollected}`, W / 2, cy + 175);
-
-  const btnY = cy + 230;
-  const pulse = Math.sin(gameTime * 0.05) * 0.2 + 0.8;
-  ctx.fillStyle = `rgba(100,180,255,${pulse * 0.3})`;
-  ctx.strokeStyle = `rgba(100,180,255,${pulse})`;
-  ctx.lineWidth = 2;
-  const btnW = 200, btnH = 50;
-  ctx.beginPath();
-  ctx.roundRect(W / 2 - btnW / 2, btnY - btnH / 2, btnW, btnH, 25);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${Math.min(20, W * 0.03)}px monospace`;
-  ctx.fillText('PLAY AGAIN', W / 2, btnY + 7);
+  ctx.restore();
 }
 
 // Game loop
@@ -1022,7 +1040,6 @@ function loop() {
   requestAnimationFrame(loop);
 }
 
-initClouds();
 loop();
 </script>
 </body>
