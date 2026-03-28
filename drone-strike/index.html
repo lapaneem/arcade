@@ -60,65 +60,33 @@ canvas {
 <canvas id="c"></canvas>
 <button id="mute-btn">🔊</button>
 <a id="back-btn" href="../index.html">← Back</a>
-<div id="yt-container" style="position:absolute;top:-200px;left:-200px;width:1px;height:1px;overflow:hidden;"></div>
+<audio id="music" loop preload="none">
+  <source src="https://cdn.pianorhythm.io/proxy/yt/yoe_f-YYHnQ" type="audio/mpeg">
+</audio>
 
 <script>
-// YouTube IFrame API — only loads when user clicks PLAY
-let ytPlayer = null;
+// Music via Audio element
+let musicEl = document.getElementById('music');
 let musicMuted = false;
-let ytReady = false;
+let musicStarted = false;
 
 function loadYouTubeMusic() {
-  if (ytPlayer) {
-    // Already loaded, just play
-    try { ytPlayer.playVideo(); } catch(e) {}
-    return;
+  if (!musicStarted) {
+    // Fallback: create a visible YouTube embed the user can tap
+    const container = document.createElement('div');
+    container.id = 'music-popup';
+    container.style.cssText = 'position:fixed;bottom:60px;right:10px;z-index:100;border-radius:12px;overflow:hidden;box-shadow:0 0 20px rgba(79,195,247,0.5);';
+    container.innerHTML = '<iframe width="200" height="50" src="https://www.youtube.com/embed/yoe_f-YYHnQ?autoplay=1&loop=1&playlist=yoe_f-YYHnQ" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>';
+    document.body.appendChild(container);
+    musicStarted = true;
   }
-  // Create iframe dynamically after user interaction
-  const container = document.getElementById('yt-container');
-  container.innerHTML = '<div id="yt-player"></div>';
-
-  if (!ytReady) {
-    const tag = document.createElement('script');
-    tag.src = 'https://www.youtube.com/iframe_api';
-    document.head.appendChild(tag);
-  } else {
-    createYTPlayer();
-  }
-}
-
-function createYTPlayer() {
-  ytPlayer = new YT.Player('yt-player', {
-    height: '1',
-    width: '1',
-    videoId: 'yoe_f-YYHnQ',
-    playerVars: {
-      autoplay: 1,
-      loop: 1,
-      playlist: 'yoe_f-YYHnQ',
-      controls: 0,
-    },
-    events: {
-      onReady: (e) => {
-        e.target.setVolume(60);
-        e.target.playVideo();
-        if (musicMuted) e.target.mute();
-      },
-    }
-  });
-}
-
-function onYouTubeIframeAPIReady() {
-  ytReady = true;
-  createYTPlayer();
 }
 
 const muteBtn = document.getElementById('mute-btn');
 muteBtn.addEventListener('click', () => {
   musicMuted = !musicMuted;
-  if (ytPlayer && ytPlayer.mute) {
-    musicMuted ? ytPlayer.mute() : ytPlayer.unMute();
-  }
+  const popup = document.getElementById('music-popup');
+  if (popup) popup.style.display = musicMuted ? 'none' : 'block';
   muteBtn.textContent = musicMuted ? '🔇' : '🔊';
 });
 
