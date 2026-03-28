@@ -60,23 +60,57 @@ canvas {
 <canvas id="c"></canvas>
 <button id="mute-btn">🔊</button>
 <a id="back-btn" href="../index.html">← Back</a>
-<iframe id="yt-player" width="0" height="0" src="https://www.youtube.com/embed/yoe_f-YYHnQ?autoplay=1&loop=1&playlist=yoe_f-YYHnQ&enablejsapi=1" frameborder="0" allow="autoplay" style="position:absolute;top:-100px;left:-100px;width:1px;height:1px;"></iframe>
+<div id="yt-container" style="position:absolute;top:-200px;left:-200px;width:1px;height:1px;overflow:hidden;"></div>
 
 <script>
-// YouTube IFrame API
+// YouTube IFrame API — only loads when user clicks PLAY
 let ytPlayer = null;
 let musicMuted = false;
+let ytReady = false;
 
-const tag = document.createElement('script');
-tag.src = 'https://www.youtube.com/iframe_api';
-document.head.appendChild(tag);
+function loadYouTubeMusic() {
+  if (ytPlayer) {
+    // Already loaded, just play
+    try { ytPlayer.playVideo(); } catch(e) {}
+    return;
+  }
+  // Create iframe dynamically after user interaction
+  const container = document.getElementById('yt-container');
+  container.innerHTML = '<div id="yt-player"></div>';
 
-function onYouTubeIframeAPIReady() {
+  if (!ytReady) {
+    const tag = document.createElement('script');
+    tag.src = 'https://www.youtube.com/iframe_api';
+    document.head.appendChild(tag);
+  } else {
+    createYTPlayer();
+  }
+}
+
+function createYTPlayer() {
   ytPlayer = new YT.Player('yt-player', {
+    height: '1',
+    width: '1',
+    videoId: 'yoe_f-YYHnQ',
+    playerVars: {
+      autoplay: 1,
+      loop: 1,
+      playlist: 'yoe_f-YYHnQ',
+      controls: 0,
+    },
     events: {
-      onReady: (e) => { e.target.setVolume(50); },
+      onReady: (e) => {
+        e.target.setVolume(60);
+        e.target.playVideo();
+        if (musicMuted) e.target.mute();
+      },
     }
   });
+}
+
+function onYouTubeIframeAPIReady() {
+  ytReady = true;
+  createYTPlayer();
 }
 
 const muteBtn = document.getElementById('mute-btn');
@@ -168,6 +202,7 @@ function initClouds() {
 }
 
 function startGame() {
+  loadYouTubeMusic();
   state = STATE.PLAYING;
   score = 0; lives = 3; distance = 0; starsCollected = 0; photosCollected = 0;
   comboCount = 0; comboTimer = 0; speed = 2; gameTime = 0;
