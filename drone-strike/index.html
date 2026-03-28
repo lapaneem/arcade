@@ -76,13 +76,13 @@ canvas {
   <h1 style="font-size:60px;color:#4fc3f7;text-shadow:0 0 30px rgba(79,195,247,0.6);margin-bottom:8px;direction:rtl;">כטב"ם</h1>
   <p style="color:rgba(255,255,255,0.6);font-size:18px;margin-bottom:6px;direction:rtl;">?מה זה בשמיים</p>
   <p style="color:rgba(255,255,255,0.4);font-size:14px;margin-bottom:24px;">Tap only the drones!</p>
-  <button id="play-btn" style="padding:14px 48px;font-size:20px;font-weight:700;border:2px solid #4fc3f7;background:rgba(79,195,247,0.15);color:#4fc3f7;border-radius:30px;cursor:pointer;letter-spacing:2px;">PLAY</button>
+  <button id="play-btn" style="padding:14px 48px;font-size:20px;font-weight:700;border:2px solid #4fc3f7;background:rgba(79,195,247,0.15);color:#4fc3f7;border-radius:30px;cursor:pointer;letter-spacing:2px;pointer-events:auto;position:relative;z-index:60;">PLAY</button>
 </div>
 
 <div id="gameover-overlay" style="position:fixed;inset:0;display:none;flex-direction:column;align-items:center;justify-content:center;background:rgba(10,22,40,0.95);z-index:50;">
   <h1 style="font-size:40px;color:#ff5252;text-shadow:0 0 20px rgba(255,82,82,0.5);margin-bottom:16px;">Game Over</h1>
   <div id="go-stats" style="font-size:20px;color:rgba(255,255,255,0.8);text-align:center;line-height:2;margin-bottom:24px;"></div>
-  <button id="retry-btn" style="padding:14px 48px;font-size:20px;font-weight:700;border:2px solid #4fc3f7;background:rgba(79,195,247,0.15);color:#4fc3f7;border-radius:30px;cursor:pointer;letter-spacing:2px;">PLAY AGAIN</button>
+  <button id="retry-btn" style="padding:14px 48px;font-size:20px;font-weight:700;border:2px solid #4fc3f7;background:rgba(79,195,247,0.15);color:#4fc3f7;border-radius:30px;cursor:pointer;letter-spacing:2px;pointer-events:auto;position:relative;z-index:60;">PLAY AGAIN</button>
 </div>
 
 <script>
@@ -329,8 +329,10 @@ canvas.addEventListener('touchstart', e => {
   }
 });
 
-document.getElementById('play-btn').addEventListener('click', () => { startGame(); });
-document.getElementById('retry-btn').addEventListener('click', () => { startGame(); });
+document.getElementById('play-btn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+document.getElementById('play-btn').addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); });
+document.getElementById('retry-btn').addEventListener('click', (e) => { e.stopPropagation(); startGame(); });
+document.getElementById('retry-btn').addEventListener('touchend', (e) => { e.preventDefault(); e.stopPropagation(); startGame(); });
 
 function startGame() {
   document.getElementById('start-overlay').style.display = 'none';
